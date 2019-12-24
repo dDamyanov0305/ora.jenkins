@@ -1,0 +1,19 @@
+{
+  "name": "ora.jenkins",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts":{
+    "start" : "env-cmd -f ./.env nodemon src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dDamyanov0305/ora.jenkins.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dDamyanov0305/ora.jenkins/issues"
+  },
+  "homepage": "https://github.com/dDamyanov0305/ora.jenkins#readme"
+}
