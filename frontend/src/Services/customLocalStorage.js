@@ -6,7 +6,7 @@ class TemporaryStorage {
 	}
 
 	getItem(key) {
-		if (this._data[key] === undefined)			{ return null; }
+		if (this._data[key] === undefined) { return null; }
 		return this._data[key];
 	}
 
@@ -36,6 +36,7 @@ function storage() {
 	} catch (e) {
 		return new TemporaryStorage();
 	}
+	
 }
 
-module.exports = storage();
+export default storage();

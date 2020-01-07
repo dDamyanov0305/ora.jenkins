@@ -1,37 +1,42 @@
 import { observable } from 'mobx';
-import { storage } from '../Services/perfectLocalStorage';
+import storage from '../Services/perfectLocalStorage';
 
 class UserStore {
 
 	@observable token;
 	@observable loggedIn;
-	@observable profilePicture;
 	@observable id;
 
 	constructor() {
 		this.loggedIn = false;
-		const account = storage.getObject('authenticatedAccount');
+		const account = storage.getObject('ora.jenkins_authenticated_account');
 		if (account.id) {
 			this.setAccount(account);
 		}
 
 	}
 
+	 get githubToken() {
+		for(let integration in this.integrations){
+			if(integration.type === 'github')
+				return integration.token
+		}
+		return null
+	}
+
 	setAccount(account) {
-		// console.log(`setAccount is called`);
+		
 		this.loggedIn = true;
 		this.id = account.id;
-		this.username = account.username;
+		this.name = account.name;
 		this.email = account.email;
 		this.token = account.token;
-		this.profilePicture = account.profile_picture;
-		this.fullName = account.full_name;
+		this.integrations = account.integrations || []
 		
-		// storage.setObject(`authenticatedAccount`, account);
+		storage.setObject(`ora.jenkins_authenticated_account`, account);
 	}
 
 	logout() {
-		api.send({ intention: 'logout' });
 		storage.clear();
 		document.location.reload();
 	}
@@ -39,4 +44,4 @@ class UserStore {
 }
 
 const user = new UserStore();
-module.exports = user;
+export default user

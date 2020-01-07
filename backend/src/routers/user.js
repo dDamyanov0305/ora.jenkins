@@ -1,6 +1,7 @@
 const express = require('express')
 const User = require('../models/User')
-
+const {Integration} = require('../models/Integration')
+const auth = require('../middleware/auth')
 const router = express.Router()
 
 router.post('/users', async (req, res) => {
@@ -24,9 +25,10 @@ router.post('/users/login', async(req, res) => {
             return res.status(401).send({error: 'Login failed! Check authentication credentials'})
         }
         const token = await user.generateAuthToken()
+        user.integrations = await Integration.find({ user_id: user._id })
         res.send({ user, token })
     } catch (error) {
-        res.status(400).send(error)
+        res.status(400).send({error})
     }
 
 })

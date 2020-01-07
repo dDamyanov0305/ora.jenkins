@@ -2,7 +2,15 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 
 const auth = async(req, res, next) => {
-    const token = req.header('Authorization').replace('Bearer ', '')
+    const tokens = req.header('Authorization').split(',')
+    
+    for(let t in tokens){
+        if(t.includes('Bearer ')){
+            var token = t.replace('Bearer ', '')
+            break
+        }
+    }
+
     const data = jwt.verify(token, process.env.JWT_KEY)
     try {
         const user = await User.findOne({ _id: data._id, 'tokens.token': token })
@@ -17,4 +25,5 @@ const auth = async(req, res, next) => {
     }
 
 }
+
 module.exports = auth

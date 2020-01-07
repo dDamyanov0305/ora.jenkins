@@ -1,6 +1,6 @@
 // https://codemotion.quip.com/JcLsAiVPaMh5
 
-const customLocalStorage = require('./customLocalStorage');
+import customLocalStorage from './customLocalStorage'
 
 function setObject(key, value) {
 	if (value === undefined) return;
@@ -9,7 +9,7 @@ function setObject(key, value) {
 	return value;
 }
 
-exports.storage = {
+const storage = {
 	set(key, value) {
 		customLocalStorage.setItem(key, value);
 		return String(value);
@@ -32,3 +32,5 @@ exports.storage = {
 		return customLocalStorage.clear();
 	}
 };
+
+export default storage
