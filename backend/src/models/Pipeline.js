@@ -1,14 +1,15 @@
 const mongoose = require('mongoose')
-
-const triggerModes = {
-    MANUAL:'1',
-    PUSH:'2',
-    RECCURENTLY:'3'
-}
+const triggerModes  = require('../constants').triggerModes
 
 const pipelineSchema = mongoose.Schema({
     project_id:{
-        type:Number,
+        type: mongoose.SchemaTypes.ObjectId,
+        ref: 'Project',
+        require: true
+    },
+    creator:{
+        type: mongoose.SchemaTypes.ObjectId,
+        ref: 'User',
         require: true
     },
     name:{
@@ -16,12 +17,14 @@ const pipelineSchema = mongoose.Schema({
         require: true
     },
     trigger_mode:{
-        type:Number,
+        type:String,
+        enum: Object.values(triggerModes),
         require: true
     },
     branch: String,
+    create_date: Date
 })
 
 const Pipeline = mongoose.model('Pipeline', pipelineSchema)
 
-module.exports = { Pipeline, triggerModes }
+module.exports = Pipeline

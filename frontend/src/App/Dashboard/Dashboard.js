@@ -10,8 +10,8 @@ class Dashboard extends Component{
         }
     }
 
-    componentDidMount(){
-        fetch('http://localhost:5000/projects',
+    async componentDidMount(){
+        const res = await fetch('http://localhost:5000/projects',
             {
                 headers:{
                     "Content-type": "application/json",
@@ -19,9 +19,10 @@ class Dashboard extends Component{
                 }
             }
         )
-        .then(res=>res.json())
-        .then(data=>{this.setState({projects:data.projects})})
-        .catch(err=>console.log(err))
+        const data = await res.json()
+        if(res.status >=200 && res.status < 300)
+            this.setState({ projects: data.projects })
+        
     }
 
     openProject = ({id, name}) => {
@@ -31,8 +32,9 @@ class Dashboard extends Component{
     render(){
         return(
             <div>
-                {this.state.projects.map(p=><p onClick={this.openProject(p)}>{p.name}</p>)}
+                {this.state.projects.map(p => <p onClick={()=>this.openProject(p)}>{p.name}</p>)}
                 <NewProjectLink/>
+                <OraIntegration/>
             </div>
         )
     }
@@ -42,7 +44,7 @@ const NewProjectLink = () => {
 
     const openLink = () => {
         if(!user.githubToken){
-            window.open(`https://github.com/login/oauth/authorize?client_id=${process.env.REACT_APP_GITHUB_OAUTH_CLIENT_ID}?scope=repo write:repo_hook user workflow`,'_self')
+            window.open(`https://github.com/login/oauth/authorize?client_id=4932c4d429e01a41781d&scope=repo user&state=${user.token}`,'_blank','height=570,width=520')
         }
         else{
             routeStore.push('/create-project')
@@ -50,6 +52,17 @@ const NewProjectLink = () => {
     }
 
     return <p onClick={openLink}>create new project</p>
+}
+
+const OraIntegration = () => {
+
+    const openLink = () => {
+        if(!user.githubToken){
+            window.open(`https://ora.pm/authorize?client_id=95I9a8bgnpnHXTFCh3xpAJutKLwb1ruqOZzZLWURcipECxgZ&redirect_uri=http://localhost:5000/ora/oauth&response_type=code`,'_self')
+        }
+    }
+
+    return <p onClick={openLink}>ora</p>
 }
 
 

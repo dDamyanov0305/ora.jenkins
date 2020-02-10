@@ -1,53 +1,58 @@
 import React, { Component } from 'react';
+import user from '../../Stores/UserStore'
 
 class ProjectForm extends Component{
     constructor(props){
         super(props);
         this.state = {
-            repos:[]
+            repos:[],
+            hosting_provider:'GITHUB'
         }
 
     }
 
-    componentDidMount(){
-        fetch('https://api.github.com/user/repos',
-            {
+    async componentDidMount(){
+        try{
+            const result = await fetch('https://localhost:5000/github/repos',{
                 headers:{
                     "Content-type": "application/json",
-                    "Authorization": "token " + user.githubToken
+                    "Authorization": "Bearer " + user.token
                 }
+            })
+            if(result.status === 200){
+                const data = await result.json()
+                this.setState({repos: data.projects})
             }
-        )
-        .then(res=>res.json())
-        .then(({repos})=>{this.setState({repos})})
-        .catch(err=>console.log(err))
+        }catch(err){
+            console.log(err)
+        }
+
     }
 
-    //create new project
-    syncProject = ({full_name}) => {
-        fetch('http://localhost:5000/github/new',
-            {
-                method:'POST',
-                headers:{
-                    "Content-type": "application/json",
-                    "Authorization": `token ${user.githubToken}, Bearer ${user.token}`
-                },
-                body:{full_name}
-            }
-        )
-        .then(res=>{
-            if(!(res.status>=200 && res.status<300)){
-                console.log("OMFG ERROR")
-            }else{
-                return res.json()
+    
+    createProject = async (repo) => {
+        const result = await fetch('http://localhost:5000/projects/create',{
+            method:'POST',
+            headers:{
+                "Content-type": "application/json",
+                "Authorization": `Bearer ${user.token}`
+            },
+            body:{
+                name: repo.full_name,
+                
             }
         })
+
+        if(!(result.status < 200 || result.status >= 300)){
+
+        }
+       
     }
 
     render(){
         return(
             <div>
-                {this.state.repos.map(repo=><p onClick={this.syncProject(repo)}>{repo.name}</p>)}
+                {this.state.repos.map(repo => <p onClick={this.createProject(repo)}>{repo.name}</p>)}
             </div>
         )
     }

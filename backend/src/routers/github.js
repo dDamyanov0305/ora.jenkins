@@ -1,116 +1,65 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
-const githubToken = require('../middleware/githubToken')
-const { Integration, IntegrationTypes } = require('../models/Integration')
-const Project = require('../models/Project')
-const { Pipeline, triggerModes } = require('../models/Pipeline')
-const { Build, buildStatus } = require('../models/Build')
-const exec = require('child_process').exec
-const cron = require('node-cron')
+const Integration = require('../models/Integration')
+const User = require('../models/User')
+const integrationTypes = require('../constants').integrationTypes
+const fetch = require('node-fetch')
 
-router.post('/github/oauth/callback', auth, async (req, res, next) => {
-    const {code} = req.query
+router.get('/github/oauth', auth, async (req, res) => {
 
-    if(!code){
-        return res.send({
-            success:false,
-            message: "Error: no code"
+    const { code } = req.query
+
+    if(!code)
+        res.sendStatus(403)
+    
+    try{
+        const result = await fetch(`https://github.com/login/oauth/access_token?client_id=${process.env.GITHUB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITHUB_OAUTH_CLIENT_SECRET}&code=${code}`,
+        {
+            method:'POST',
+            headers:{'Accept':'application/json'},
         })
+    
+        if(result.status < 200 || result.status >= 300){
+            res.sendStatus(result.status)
+        }
+        else{
+            const data = await result.json()
+            const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.GITHUB, token:data.access_token })
+            res.sendStatus(201).json({integration})
+        }
+
+    }
+    catch(err){
+        console.log(err)
+        res.sendStatus(500)
     }
 
-    fetch('https://github.com/login/oauth/access_token',
-    {
-        method:'POST',
-        headers:{'Accept':'application/json'},
-        body:{
-            client_id:process.env.GITHUB_OAUTH_CLIENT_ID,
-            client_secret:process.env.GITHUB_OAUTH_CLIENT_SECRET,
-            code
+})
+
+router.get('/github/repos', auth, async (req, res) => {
+
+    const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
+
+    if(!integration){
+        res.sendStatus(400)
+    }
+
+    const result = await fetch('https://api.github.com/user/repos',{
+        headers:{
+            "Content-type": "application/json",
+            "Authorization": "token " + integration.token
         }
     })
-    .then(result=>{
-        if(result.status!==200)
-            return res.status(result.status)
-        return result.json()
-    })
-    .then(data=>{
-        Integration.create({
-            user_id:req.user._id, 
-            type:IntegrationTypes.GITHUB, 
-            token:data.access,
-        })
-        res.send(data)
-    })
-    .catch(err=>res.status(401))
 
+    if(result.status < 200 || result.status >= 300){
+        res.sendStatus(result.status)
+    }
+    else{
+        const projects = await res.json()
+        res.status(200).json({projects})
+    }
 })
 
-
-router.post('/github/new', [auth, githubToken], async(req, res) => {
-
-    const {full_name} = req.body
-
-    Project
-        .create({user_id: req.user._id, repo_name: full_name})
-        .then(project=>res.status(201).send({project}))
-        .catch(err=>res.status(500).send(err))
-
-})
-
-router.post('/github/hooks/trigger/:user_id/:repo', async(req, res) => {
-
-    const { user_id, repo } = req.query
-    const branch = req.body.ref.split('/')[2]
-
-    Project.findOne({user_id, repo_name: repo}, (err, project) => {
-        Pipeline.find({ project_id: project._id, triggerMode: triggerModes.PUSH, branch }, (err, pipelines)=>{
-            pipelines.forEach(pipeline => build(repo, pipeline))
-        })
-    })
-
-
-})
-
-router.post('/github/manual/trigger', async(req, res) => {
-
-    const { project_id, pipe_id, repo } = req.body
-
-    Pipeline.findOne({ project_id, _id: pipe_id }, (err, pipeline)=>{
-        build(repo, pipeline)
-    })
-
-})
-
-router.post('/github/schedule', async(req, res) => {
-
-    const { project_id, pipe_id, repo, cron_format_date } = req.body
-
-    Pipeline.findOne({ project_id, _id: pipe_id }, (err, pipeline)=>{
-        cron.schedule(cron_format_date, ()=>{
-            build(repo, pipeline)
-        })
-    })
-})
-
-const build = (repo, pipeline) => {
-    const repo_name = repo.split('/')[1]
-    const { commands, branch, _id, nextPipe } = pipeline
-    const op = `git clone https://github.com/${repo}.git && cd ${repo_name} && git checkout ${branch} && git pull`
-    op += commands.reduce((accum, curr) => accum + ' && ' + curr)
-    exec(op, (err, stdout, stderr)=>{
-
-        Build.create({pipe_id: _id, status: err?buildStatus.FAILED:buildStatus.SUCCESSFUL, log: stdout })
-        
-        if(err){
-            console.log(err)
-        } else {
-            Pipeline.findOne({ _id: nextPipe }, (err, nextPipe) => {
-                build(repo, nextPipe)
-            })
-        }
-        
-    })
-}
 
 module.exports = router

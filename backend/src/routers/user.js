@@ -1,49 +1,59 @@
 const express = require('express')
 const User = require('../models/User')
-const {Integration} = require('../models/Integration')
+const Integration = require('../models/Integration')
 const auth = require('../middleware/auth')
 const router = express.Router()
+const Workspace = require('../models/Workspace')
+const bcrypt = require('bcryptjs')
 
-router.post('/users', async (req, res) => {
-    // Create a new user
+router.post('/users/create', async (req, res) => {
+
+    console.log(req.body)
     try {
         const user = new User(req.body)
         await user.save()
-        const token = await user.generateAuthToken()
-        res.status(201).send({ user, token })
+        user.token = await user.generateAuthToken()
+        await Workspace.create({name: req.body.name, create_date: Date.now(), owner_id: user._id, members:[user._id]})
+        res.status(201).json(user)
     } catch (error) {
-        res.status(400).send(error)
+        res.status(500).json(error)
     }
 })
 
 router.post('/users/login', async(req, res) => {
-    //Login a registered user
+
+    const { email, password } = req.body   
+    
     try {
-        const { email, password } = req.body
-        const user = await User.findByCredentials(email, password)
-        if (!user) {
-            return res.status(401).send({error: 'Login failed! Check authentication credentials'})
-        }
-        const token = await user.generateAuthToken()
+
+        const user = await User.findOne({ email })
+        if (!user) 
+            res.status(401).json({error: 'Login failed! Check authentication credentials'})
+
+        const isPasswordMatch = await bcrypt.compare(password, user.password)
+
+        if (!isPasswordMatch)
+            res.status(401).json({error: 'Login failed! Check authentication credentials'})
+            
+
+        user.token = await user.generateAuthToken()
         user.integrations = await Integration.find({ user_id: user._id })
-        res.send({ user, token })
+
+        res.status(200).json(user)
     } catch (error) {
-        res.status(400).send({error})
+        console.log(error)
+        res.sendStatus(500)
     }
 
 })
 
 router.get('/users/me', auth, async(req, res) => {
-    // View logged in user profile
     res.send(req.user)
 })
 
 router.post('/users/me/logout', auth, async (req, res) => {
-    // Log user out of the application
     try {
-        req.user.tokens = req.user.tokens.filter((token) => {
-            return token.token != req.token
-        })
+        req.user.tokens = req.user.tokens.filter(token => token.token != req.token)
         await req.user.save()
         res.send()
     } catch (error) {
@@ -52,7 +62,6 @@ router.post('/users/me/logout', auth, async (req, res) => {
 })
 
 router.post('/users/me/logoutall', auth, async(req, res) => {
-    // Log user out of all devices
     try {
         req.user.tokens.splice(0, req.user.tokens.length)
         await req.user.save()

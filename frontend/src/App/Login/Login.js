@@ -25,7 +25,6 @@ class Login extends Component{
             },
             showPass:false,
             errorText:'',
-            error:false,
         }
     }
 
@@ -39,32 +38,31 @@ class Login extends Component{
         this.setState({showPass:!this.state.showPass})
     }
 
-    handleLogin = e => {
+    handleLogin = async (e) => {
         e.preventDefault()
-        
-        fetch('http://localhost:5000/users/login',
-            {
+
+        try{
+            const res = await fetch('http://localhost:5000/users/login',{
                 method:'POST',
                 mode:'cors',
                 headers:{"Content-type": "application/json"},
-                body:this.state.creds
-            }
-        )
-        .then(res=>{
-            this.setState({error:res.status!==200?true:false})
-            return res.json()
-        })
-        .then(data=>{
-            if(this.state.error){
-                this.setState({errorText:data.error})        
+                body: JSON.stringify(this.state.creds)
+            })
+            
+            const data = await res.json()
+            console.log(data)
+            
+            if(res.status < 200 || res.status >= 300){
+                this.setState({errorText: data.error})        
             }else{
                 user.setAccount(data)
                 routeStore.push("/dashboard")
             }
-        })
-        .catch(err=>console.log(err))
 
-
+        }catch(err){
+            console.log(err)
+        }
+        
     }
 
     changeForm = () => {
@@ -74,8 +72,8 @@ class Login extends Component{
     render(){
         return(
         <div>
-            <p>{this.state.error}</p>
-            <form onSubmit={this.handleSignIn}>
+            <p>{this.state.errorText}</p>
+            <form onSubmit={this.handleLogin}>
             <label>
                 e-mail
                 <input type="text" name="email" value={this.state.email} onChange={this.handleChange}/>

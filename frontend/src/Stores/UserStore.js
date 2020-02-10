@@ -10,28 +10,23 @@ class UserStore {
 	constructor() {
 		this.loggedIn = false;
 		const account = storage.getObject('ora.jenkins_authenticated_account');
-		if (account.id) {
+		if (account) {
 			this.setAccount(account);
 		}
 
 	}
 
 	 get githubToken() {
-		for(let integration in this.integrations){
-			if(integration.type === 'github')
-				return integration.token
-		}
-		return null
+		return this.integrations?.find(i => i.type === 'GITHUB')	
 	}
 
 	setAccount(account) {
 		
 		this.loggedIn = true;
-		this.id = account.id;
+		this.id = account._id;
 		this.name = account.name;
 		this.email = account.email;
 		this.token = account.token;
-		this.integrations = account.integrations || []
 		
 		storage.setObject(`ora.jenkins_authenticated_account`, account);
 	}

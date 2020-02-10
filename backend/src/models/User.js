@@ -14,23 +14,26 @@ const userSchema = mongoose.Schema({
         required: true,
         unique: true,
         lowercase: true,
-        validate: value => {
+        /*validate: value => {
             if (!validator.isEmail(value)) {
                 throw new Error({error: 'Invalid Email address'})
             }
-        }
+        }*/
     },
     password: {
         type: String,
         required: true,
-        minLength: 7
+        minLength: 5
     },
-    tokens: [{
-        token: {
-            type: String,
-            required: true
+    tokens: [
+        {
+            token: {
+                type: String,
+                required: true
+            }
         }
-    }]
+    ],
+
 })
 
 userSchema.pre('save', async function (next) {
@@ -53,6 +56,7 @@ userSchema.methods.generateAuthToken = async function() {
 
 userSchema.statics.findByCredentials = async (email, password) => {
     // Search for a user by email and password.
+    
     const user = await User.findOne({ email} )
     if (!user) {
         throw new Error({ error: 'Couldn\'t find user with that e-mail' })

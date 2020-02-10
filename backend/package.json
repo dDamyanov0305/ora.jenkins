@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts":{
-    "start" : "env-cmd -f ./.env nodemon src/index.js"
+  "scripts": {
+    "start": "env-cmd -f ./.env nodemon src/index.js"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,21 @@
   "bugs": {
     "url": "https://github.com/dDamyanov0305/ora.jenkins/issues"
   },
-  "homepage": "https://github.com/dDamyanov0305/ora.jenkins#readme"
+  "homepage": "https://github.com/dDamyanov0305/ora.jenkins#readme",
+  "dependencies": {
+    "bcrypt": "^3.0.7",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dockerode": "^3.0.2",
+    "env-cmd": "^10.0.1",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.1.6",
+    "formidable": "^1.2.1",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^5.8.9",
+    "node-fetch": "^2.6.0",
+    "nodemailer": "^6.4.2",
+    "nodemon": "^2.0.2",
+    "validator": "^12.2.0"
+  }
 }

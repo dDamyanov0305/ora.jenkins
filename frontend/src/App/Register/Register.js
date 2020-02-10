@@ -14,8 +14,7 @@ class Register extends Component{
           name:'',
         },
         showPass:false,
-        errorText:'',
-        error:false
+        errors:[]
       }
     }
   
@@ -29,41 +28,37 @@ class Register extends Component{
       this.setState({showPass:!this.state.showPass})
     }
   
-    handleSignIn = e => {
+    handleSignUp = async (e) => {
       e.preventDefault()
   
       let errors = []
       
-      if(this.state.password.lenght < 5){
+      if(this.state.creds.password.lenght < 5){
         errors.push("Your password must be at least 5 characters long")
       }
   
-      else if(this.state.password !== this.state.confirmedPassword){
+      else if(this.state.creds.password !== this.state.creds.confirmedPassword){
         errors.push("Your passwords don't match")
       }
   
       else{
-        fetch('http://localhost:5000/users',
-          {
+        const res = await fetch('http://localhost:5000/users/create',{
             method:'POST',
             mode:'cors',
             headers:{"Content-type": "application/json"},
-            body:this.state.creds
-          }
-        )
-        .then(res=>{
-          this.setState({error:res.status!==200?true:false})
-          return res.json()
-        })
-        .then(data=>{
-            if(this.state.error){
-                this.setState({errorText:data.error})        
-            }else{
-                user.setAccount(data)
-                routeStore.push("/dashboard")
-            }
-        })
-        .catch(err=>{console.log(err)})
+            body: JSON.stringify(this.state.creds)
+          })
+       
+         const data = await res.json()
+         console.log(data)
+
+         if(res.status < 200 || res.status >= 300)
+            errors.push(data.error)       
+         else{
+            user.setAccount(data)
+            routeStore.push("/dashboard")
+         }
+              
       }
   
       this.setState({errors})
@@ -77,7 +72,8 @@ class Register extends Component{
     render(){
       return(
         <div>
-          <form onSubmit={this.handleSignIn}>
+          {this.state.errors.map(err => <p>{err}</p>)}
+          <form onSubmit={this.handleSignUp}>
           <label>
               name
               <input type="text" name="name" value={this.state.name} onChange={this.handleChange}/>
