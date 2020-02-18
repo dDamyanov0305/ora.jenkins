@@ -4,7 +4,7 @@ const auth = require('../middleware/auth')
 const Workspace = require('../models/Workspace')
 const checkPermission = require('../middleware/checkPermission')
 
-router.post('/workspaces/all', auth, async(req, res) => {
+router.get('/workspaces/all', auth, async(req, res) => {
 
     try{
         const workspaces = await Workspace.find({ members: req.user._id })

@@ -35,8 +35,11 @@ router.get('/ora/oauth', auth, async (req, res) => {
         }
         else{
             const data = await result.json()
-            //await Integration.create({ user_id: req.user._id, type:integrationTypes.ORA, token:data.access_token })
-            res.redirect('http://localhost:3000/create-project')
+            const integrtion = await Integration.create({ user_id: req.user._id, type:integrationTypes.ORA, token:data.access_token })
+            if(!integrtion) 
+                res.redirect('http://localhost:3000/dashboard')
+
+            res.redirect('http://localhost:3000/successful')
         }
 
     }

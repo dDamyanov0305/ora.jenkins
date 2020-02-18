@@ -1,8 +1,9 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
-const Pipeline = require('../models/Pipeline')
+const docker = require('../docker/Docker')
 const Execution = require('../models/Execution')
+const Action = require('../models/Action')
 const checkPermission = require('../middleware/checkPermission')
 const { triggerModes, executionStatus } = require('../constants')
 
@@ -22,7 +23,6 @@ router.post('/executions/all', [auth, checkPermission], async(req, res) => {
 })
 
 
-
 router.post('/executions/get', [auth, checkPermission], async(req, res) => {
 
     const { execution_id, action_id } = req.body
@@ -31,9 +31,37 @@ router.post('/executions/get', [auth, checkPermission], async(req, res) => {
         const execution = await Execution.findOne({ action_id, _id: execution_id })
 
         if(!execution)
-            res.status(404).send('Couldn\'t find execution with that id and name.')
+            return res.status(404).send('Couldn\'t find execution with that id and name.')
+
+
+        const action = await Action.findOne({_id:action_id})
+        const container = docker.getContainer(action.docker_container_id)
+
+        const info = await container.inspect()
+
+        if(!info.State.Running) await container.start()
+
+        const exec = await container.exec({
+            AttachStdin: false,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true,
+            Cmd: ['/bin/bash', '-c', `cat /var/log/ora.jenkins/log${execution.number}.log`]
+        })
             
-        res.status(200).json(execution)
+        const stream = await exec.start()
+        let log = ''
+
+        stream.on('data', chunk => {
+            log += chunk.toString()
+        })
+
+        stream.on('end', chunk => {
+            return res.status(200).json({...execution, log})
+        })
+
+            
+        
     }
     catch(error){
         console.log(error)

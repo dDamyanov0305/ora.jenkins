@@ -10,6 +10,7 @@ app.use(cors())
 app.use(express.json())
 
 app.use(require('./routers/user'))
+app.use(require('./routers/integration'))
 app.use(require('./routers/github'))
 app.use(require('./routers/action'))
 app.use(require('./routers/execution'))

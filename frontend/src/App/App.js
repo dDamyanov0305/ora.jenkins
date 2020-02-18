@@ -19,22 +19,6 @@ class App extends Component{
     window.authDone = this.authDone
   }
 
-  // componentDidMount(){
-  //   this.props.history.listen(async (location, action)=>{
-  //     console.log("AIDE BEEE MAMATI")
-  //     if(location.pathname==="/github/oauth/callback"){
-  //       const urlParams = new URLSearchParams(location.search);
-  //       const code = urlParams.get('code')
-  //       const state = urlParams.get('state')
-
-  //       if(/*state === user.token &&*/ code){
-  //         console.log('OOP')
-  //         const result = await fetch(`http://localhost:5000/github/oauth?code=${code}`)
-  //         routeStore.push('/create-project')
-  //       }
-  //     }
-  //   })
-  // }
 
   componentWillReceiveProps({ history, location }) {
 		routeStore.update(history, location);
@@ -48,9 +32,14 @@ class App extends Component{
 
   authDone = async (code, state) => {
     console.log(user.token)
-    if(/*state === user.token &&*/ code){
+    if(code){
       console.log('OOP')
-      const result = await fetch(`http://localhost:5000/github/oauth?code=${code}`,{headers:{"Authorization": `Bearer ${user.token}`}})
+      const result = await fetch(`http://localhost:5000/github/oauth?code=${code}`,{
+        headers: {
+          'Content-Type':'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZTJmMWQzZDllNDVhODY4ZjgzNTFhZjIiLCJpYXQiOjE1ODAxNDU5ODF9._9axXOb7NOY4Nvg991eWRcK_oOrzpaARaI5CTcUzI9U`
+        }
+      })
       console.log(result)
       if(result.status >= 200 && result.status < 300){
         routeStore.push('/create-project')
@@ -76,6 +65,16 @@ class App extends Component{
       </div>
   
     );
+  }
+}
+
+class OauthCallback extends Component{
+  constructor(props){
+    super(props)
+  }
+
+  componentDidMount(){
+    
   }
 }
 

@@ -7,6 +7,7 @@ const executionSchema = mongoose.Schema({
         ref: 'Action',
         require: true
     },
+    number: Number,
     status:{
         type: String,
         enum: Object.values(executionStatus),
@@ -24,6 +25,7 @@ const executionSchema = mongoose.Schema({
     },
     revision: String,
 })
+
 
 const Execution = mongoose.model('Execution', executionSchema)
 

@@ -21,8 +21,19 @@ const pipelineSchema = mongoose.Schema({
         enum: Object.values(triggerModes),
         require: true
     },
-    branch: String,
-    create_date: Date
+    branch: {
+        type: String,
+        default: 'master'
+    },
+    create_date: Date,
+    emailing: {
+        type: Boolean,
+        default: false
+    },
+    run_in_parallel: {
+        type: Boolean,
+        default: false
+    }
 })
 
 const Pipeline = mongoose.model('Pipeline', pipelineSchema)

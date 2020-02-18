@@ -1,8 +1,7 @@
 const mongoose = require('mongoose')
-const triggerTimes = require('../constants').triggerTimes
 const Execution = require('../models/Execution')
 const docker = require('../docker/Docker')
-const { triggerModes, executionStatus} = require('../constants')
+const { triggerModes, executionStatus, triggerTimes} = require('../constants')
 const nodemailer = require('nodemailer')
 
 
@@ -21,14 +20,6 @@ const actionSchema = mongoose.Schema({
         enum: Object.values(triggerTimes),
         require: true
     },
-    execute_commands: [String],
-    setup_commands: [String],
-    docker_image_name: String,
-    docker_image_tag: String,
-    docker_container_id: {
-        type: String,
-        default: null
-    },
     variables:[
         {
             key: String,    
@@ -40,6 +31,18 @@ const actionSchema = mongoose.Schema({
         ref: 'Action',
         default: null
     },
+    docker_container_id: {
+        type: String,
+        default: null
+    },
+    task_linkage:{
+        type: Boolean,
+        default: null
+    },
+    docker_image_name: String,
+    docker_image_tag: String,
+    execute_commands: [String],
+    setup_commands: [String],
     ora_task_id: String,
     ora_project_id: String,
     ora_list_id_on_success: String,
@@ -49,24 +52,8 @@ const actionSchema = mongoose.Schema({
 
 actionSchema.methods.build = async function(triggerMode, comment, executor, revision){
 
-    const config = {
-        AttachStdin: false,
-        AttachStdout: true,
-        AttachStderr: true,
-        Tty: true,
-    }
+    const number = await Execution.count({action_id:this._id}) 
 
-    if(!this.docker_container_id){
-        container = await docker.createContainer({
-            ...config,
-            Image: this.docker_image_name,
-            Env: this.variables.map(({key, value})=>`${key}=${value}`)
-        })
-
-        this.docker_container_id = container.id
-    }
-
-   
     const execution = new Execution({
         action_id: this._id,
         status: executionStatus.ENQUED,
@@ -74,66 +61,82 @@ actionSchema.methods.build = async function(triggerMode, comment, executor, revi
         executor,
         trigger: triggerMode,
         comment,
-        revision
+        revision,
+        number
     })
 
+    const container = docker.getContainer(this.docker_container_id)
     const info = await container.inspect()
 
-    if(!info.State.Running)
-        await container.start()
-
-
-    const num = await Execution.count({action_id:this._id})    
+    if(!info.State.Running) await container.start()
+       
     const pipeline = await Pipeline.findOne({_id: this.pipeline_id})
-    const project = await project.findOne({_id: pipeline.project_id})
-    const workdir = project.repository.split('/')[1]
-    const commands = this.execute_commands.reduce((accumulator, current) => accumulator + " && " + current, `cd ${workdir} && git checkout ${pipeline.branch} && git checkout ${revision}`)
-    const setup_commands = `git clone https://github.com/${project.repository}.git && mkdir /var/log/ora.jenkins`
+    const project = await Project.findOne({_id: pipeline.project_id})
 
-    const executable = initial ? `${setup_commands} && ${commands}` : commands
+    const pre_execute = [
+        `cd ${project.repository.split('/')[1]} && git checkout ${pipeline.branch}`,
+        triggerMode === triggerModes.MANUAL ? `git checkout ${revision}` : 'git pull'
+    ]
 
-    const exec = await container.exec({...config, Cmd: ['/bin/bash', '-c', `(${executable}) > /var/log/ora.jenkins/log${num}.log`]})
+    const executable = initial ? [...this.setup_commands, ...pre_execute, ...this.execute_commands] : [...pre_execute, ...this.execute_commands]
+
+    const exec = await container.exec({
+        AttachStdin: false,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+        Cmd: ['/bin/bash', '-c', `(${executable.join(' && ')}) > /var/log/ora.jenkins/log${number}.log`]
+    })
+
+    const nextAction = await Action.findOne({ prev_action_id: this._id })
         
-    const stream = await exec.start()
+    if(nextAction && pipeline.run_in_parallel)
+        nextAction.build(triggerMode, comment, executor, revision)
+    
+    const stream = await exec.start({Tty: true})
     
     execution.status = executionStatus.INPROGRESS
 
     const outputStream = new Stream.Writable()
     const errorStream = new Stream.Writable()
 
-    outputStream._write = (chunk, encoding, next) => {
-        console.log(chunk.toString())
-        next()
-    }
     errorStream._write = (chunk, encoding, next) => {
         execution.status = executionStatus.FAILED
-        console.log(chunk.toString())
-        next()
     } 
 
     docker.modem.demuxStream(stream, outputStream, errorStream)
 
-    const integration = await Integration.findOne({user_id: pipeline.creator, type: integrationTypes.ORA})
+    stream.on('end', async () => {
 
-    if(integration){
-     
-        await fetch(`https://api.ora.pm/projects/${this.ora_project_id}/tasks/${this.ora_task_id}/move`,{
-            method:'POST',
-            headers:{"Authorization": "Bearer " + integration.token, "Content-Type":"application/json"},
-            body:JSON.stringify({
-                list_id: execution.status !== executionStatus.FAILED ? this.ora_list_id_on_success:this.ora_list_id_on_failure
+        if(execution.status === executionStatus.INPROGRESS){
+            execution.status = executionStatus.SUCCESSFUL
+        }
+
+        const integration = await Integration.findOne({user_id: pipeline.creator, type: integrationTypes.ORA})
+
+        if(integration && this.task_linkage){
+            await fetch(`https://api.ora.pm/projects/${this.ora_project_id}/tasks/${this.ora_task_id}/move`,{
+                method:'POST',
+                headers:{"Authorization": "Bearer " + integration.token, "Content-Type":"application/json"},
+                body:JSON.stringify({
+                    list_id: execution.status !== executionStatus.FAILED ? this.ora_list_id_on_success:this.ora_list_id_on_failure
+                })
             })
-        })
+        }
 
-        if(execution.status == executionStatus.FAILED)
-            emailAssignees(this.ora_project_id,this.ora_task_id)
-    }
+        if((pipeline.emailing === triggerTimes.ON_FAILURE && execution.status === executionStatus.FAILED) ||
+            (pipeline.emailing === triggerTimes.ON_SUCCESS && execution.status === executionStatus.SUCCESSFUL) || 
+            (pipeline.emailing === triggerTimes.ON_EVERY_EXECUTION)
+        ){
+            emailAssignees(this.ora_project_id, this.ora_task_id, integration.token)
+        }
 
+        execution.save()
 
-    const nextAction = await Action.findOne({ prev_action_id: this._id })
+        if(execution.status === executionStatus.SUCCESSFUL && nextAction && !pipeline.run_in_parallel)
+            nextAction.build(triggerMode, comment, executor, revision)
 
-    if(nextAction)
-        nextAction.build(triggerMode, comment, executor, revision)
+    })
 }
 
 const emailAssignees = async (project_id ,task_id, token) => {
@@ -165,10 +168,10 @@ const emailAssignees = async (project_id ,task_id, token) => {
    
           let info = await transporter.sendMail({
             from: '"ora.jenkins" <ora.jenkins@gmail.com>',
-            to: emails.join(),
-            subject: `Execution #${num} for pipeline ${name}`, 
-            text: "the execution was ...", 
-            html: "<b>Hello world?</b>" 
+            to: emails.join(','),
+            subject: `Execution #${number} for pipeline ${pipeline.name}`, 
+            text: `the execution was ${execution.status}`,
+            html: `<a href="http://localhost:3000/execution/${execution.id}">for detailed information follow this link</a>`
           });
 
     }

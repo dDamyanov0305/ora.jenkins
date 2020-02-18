@@ -49,12 +49,49 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
     const { action_name: name, execute_commands, trigger_time, pipeline_id, prev_action_id, variables, docker_iamge_name, docker_iamge_tag } = req.body
 
     try{
-        const action =  await Action.create({ name, execute_commands, trigger_time, pipeline_id, prev_action_id, variables, docker_iamge_name, docker_iamge_tag })
+        const pipeline = await Pipeline.findOne({_id:pipeline_id})
+        const project = await project.findOne({_id:pipeline.project_id})
 
+        const container = await docker.createContainer({
+            AttachStdin: false,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true,
+            Image: docker_image_name,
+            Env: variables.map(({key, value})=>`${key}=${value}`)
+        })
+
+        if(!container){
+            res.sendStatus(500).end()
+        }
+
+        const action =  await Action.create({ name, execute_commands, trigger_time, pipeline_id, prev_action_id, variables, docker_iamge_name, docker_iamge_tag, docker_container_id: container.id })
         if(!action)
-            res.sendStatus()
+            res.sendStatus(500)
+        else{
 
-        res.status(201).json(action)
+            const setup_commands = [
+                `git clone https://github.com/${project.repository}.git`, 
+                `mkdir /var/log/ora.jenkins`
+            ]
+    
+            if(pipeline.triggerMode === triggerModes.RECCURENTLY){
+                setup_commands.concat([
+                    'apt-get update && apt-get -y install cron && sudo apt-get -y install curl',
+                    'touch /var/log/cron.log && touch /etc/cron.d/cron-job',
+                    `curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${req.token}" -d '{"triggerMode":"${triggerModes.RECCURENTLY}", "action_id":"${action_id}", "comment":"${req.body.comment}", "revision":"", "user_id":"${req.user._id}"}' ${process.env.SERVER_ADDRESS}/actions/execute`,
+                    'chmod 0644 /etc/cron.d/cron-job',
+                    'crontab /etc/cron.d/cron-job'
+                ])
+            }
+    
+            action.setup_commands = setup_commands
+            action.save()
+    
+    
+            res.status(201).json({action})
+        }
+
     }
     catch(error){
         console.log(error)
@@ -64,15 +101,15 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
 
 router.post('/actions/execute', [auth, checkPermission], async (req, res) => {
 
-    const { piepline_id, action_id, comment, revision } = req.body
+    const { action_id, comment, revision, triggerMode } = req.body
 
     try{
-        const action = await Action.findOne({ piepline_id, _id: action_id })
+        const action = await Action.findOne({ _id: action_id })
 
         if(!action)
             res.status(404).send('Couldn\'t find action with that id and name.')
 
-        action.build(triggerModes.MANUAL, comment, req.user.name, revision)
+        action.build(triggerMode, comment, req.user.name, revision)
        
     }
     catch(error){
@@ -111,56 +148,48 @@ router.delete('/action', [auth, checkPermission], async(req, res) => {
 
 router.get('/action/test', async(req, res) => {
 
-    container = await docker.getContainer("cb301e5b7ce1ee6443ef4d0360b401388beead097a2fce6830a994d7a50233e")
-    let ins = await container.inspect()
+ //container = await docker.getContainer("09f6d8625948a9258d73451097acbbe5c3d1f98340feac8443b89b792d3416c1")
 
+    const exec = await container.exec({
+        AttachStdin: false,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+        Cmd: ['/bin/bash', '-c', `cd tp-app-2 && ls && git pull`]
+    })
+
+    const stream = await exec.start({Tty: true})
+    stream.on('data', data => console.log(data.toString()))
+
+
+   // build_image('tp-app-2')
+
+})
+
+const build_image = async (dir_name) => {
+    container = await docker.getContainer("0cf59d1f17151aa19feb320a98ad24cb95964ddf697aed3def1281bc67beda67")
+
+    let ins = await container.inspect()
     if(!ins.State.Running){
         await container.start()
     }
 
+    const out = fs.createWriteStream('../../output.tar')
+    const stream = await container.getArchive({id: container.id, path: dir_name})
+    stream.pipe(out) 
+
+    stream.on('end', async () => {
+        const re = fs.createReadStream('../../output.tar')
+        const resp = await docker.buildImage(re, {t: 'testimage', dockerfile: `./${dir_name}/Dockerfile`})
+        resp.on('data',data => console.log(data.toString()))
+        resp.on('error',() => console.log('err'))
+        resp.on('end',() => {
+            console.log('end')
+        })
+    })
 
 
-    const outputStream = new Stream.Writable()
-    const errorStream = new Stream.Writable()
-
-    outputStream._write = (chunk, encoding, next) => {
-        console.log(chunk.toString())
-        next()
-    }
-    errorStream._write = (chunk, encoding, next) => {
-        console.log(chunk.toString())
-        next()
-    }      
-
-    // const clone_command = `git clone https://github.com/${project.repository}.git`
-
-    // const cron_format = '* * * * *'
-
-    // //for recurent tasks
-    // const setup_commands1 = [
-    //     'apt-get update && apt-get -y install cron',
-    //     'touch /var/log/cron.log && touch /etc/cron.d/cron-job'
-    //     `echo -e  "${cron_format} (${exec_commands}) > /var/log/cron.log\n" > /etc/cron.d/cron-job`,
-    //     'chmod 0644 /etc/cron.d/cron-job',
-    //     'crontab /etc/cron.d/cron-job'
-    // ]
-
-    // //for normal tasks
-    // const setup_commands2 = [
-    //     'mkdir /var/log/ora.jenkins'
-    //     `(${exec_commands}) > /var/log/ora.jenkins/log#${1}.log`,
-    // ]
-
-    
-    const exec = await container.exec({Cmd:['/bin/bash', '-c', `(echo fufck && ls) > /var/log/ora.jenkins/log${1}.log && cat /var/log/ora.jenkins/log${1}.log`], AttachStdin: true, AttachStdout: true, AttachStderr: true })
-    const stream = await exec.start({hijack:true})
-    const status = await exec.inspect()
-    const logs = await container.logs({stdout:true, stderr:true})
-    container.copy()
-
-    docker.modem.demuxStream(stream, outputStream, errorStream)
-    res.json({container, exec})
-})
+}
 
 
 

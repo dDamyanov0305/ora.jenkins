@@ -10,41 +10,40 @@ router.post('/users/create', async (req, res) => {
 
     console.log(req.body)
     try {
-        const user = new User(req.body)
+
+        let user = await User.findOne({ email })
+
+        if(user)
+            throw new Error('This email is taken')
+
+        user = new User(req.body)
         await user.save()
         user.token = await user.generateAuthToken()
-        await Workspace.create({name: req.body.name, create_date: Date.now(), owner_id: user._id, members:[user._id]})
-        res.status(201).json(user)
+
+        await Workspace.create({
+            name: req.body.name, 
+            create_date: Date.now(), 
+            owner_id: user._id, 
+            members:[user._id]
+        })
+
+        res.status(201).json({user})
     } catch (error) {
-        res.status(500).json(error)
+        res.status(500).json({error})
     }
 })
 
 router.post('/users/login', async(req, res) => {
-
     const { email, password } = req.body   
     
     try {
-
-        const user = await User.findOne({ email })
-        if (!user) 
-            res.status(401).json({error: 'Login failed! Check authentication credentials'})
-
-        const isPasswordMatch = await bcrypt.compare(password, user.password)
-
-        if (!isPasswordMatch)
-            res.status(401).json({error: 'Login failed! Check authentication credentials'})
-            
-
+        const user = User.findByCredentials(email, password)
         user.token = await user.generateAuthToken()
-        user.integrations = await Integration.find({ user_id: user._id })
-
-        res.status(200).json(user)
+        res.status(200).json({user})
     } catch (error) {
-        console.log(error)
+        console.log({error})
         res.sendStatus(500)
     }
-
 })
 
 router.get('/users/me', auth, async(req, res) => {

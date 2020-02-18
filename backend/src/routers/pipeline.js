@@ -22,7 +22,6 @@ router.post('/pipelines/all', [auth, checkPermission], async(req, res) => {
 })
 
 
-
 router.post('/pipelines/get', [auth, checkPermission], async(req, res) => {
 
     const { project_id, pipeline_id: _id, pipeline_name: name } = req.body
@@ -67,7 +66,7 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
                         "push",
                     ],
                     "config": {
-                        "url": `https://localhost:5000/${req.workspace.name}/${repository}/pipelines/pipeline/${pipeline._id}/webhook-trigger`,
+                        "url": `https://localhost:5000/${req.workspace.name}/${repository}/pipeline/${pipeline._id}/webhook-trigger`,
                         "content_type": "json",
                         "insecure_ssl": "0"
                     }
@@ -79,9 +78,7 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
 
             pipeline.save()
         }
-        else if(trigger_mode == triggerModes.RECCURENTLY){
-            
-        }
+       
 
         res.status(201).json(pipeline)
     }
