@@ -11,7 +11,7 @@ class Dashboard extends Component{
     }
 
     async componentDidMount(){
-        const res = await fetch('http://localhost:5000/projects',
+        const res = await fetch('http://localhost:5000/projects/all',
             {
                 headers:{
                     "Content-type": "application/json",
@@ -43,12 +43,10 @@ class Dashboard extends Component{
 const NewProjectLink = () => {
 
     const openLink = () => {
-        if(!user.githubToken){
-            window.open(`https://github.com/login/oauth/authorize?client_id=4932c4d429e01a41781d&scope=repo user&state=${user.token}`,'_blank','height=570,width=520')
-        }
-        else{
-            routeStore.push('/create-project')
-        }    
+ 
+        window.open(`https://github.com/login/oauth/authorize?client_id=4932c4d429e01a41781d&scope=repo user`,'_blank','height=570,width=520')
+        
+   
     }
 
     return <p onClick={openLink}>create new project</p>
@@ -57,9 +55,9 @@ const NewProjectLink = () => {
 const OraIntegration = () => {
 
     const openLink = () => {
-        if(!user.githubToken){
-            window.open(`https://ora.pm/authorize?client_id=95I9a8bgnpnHXTFCh3xpAJutKLwb1ruqOZzZLWURcipECxgZ&redirect_uri=http://localhost:5000/ora/oauth&response_type=code`,'_self')
-        }
+        
+        window.open(`https://ora.pm/authorize?client_id=95I9a8bgnpnHXTFCh3xpAJutKLwb1ruqOZzZLWURcipECxgZ&redirect_uri=http://localhost:5000/ora/oauth&response_type=code`,'_self')
+        
     }
 
     return <p onClick={openLink}>ora</p>

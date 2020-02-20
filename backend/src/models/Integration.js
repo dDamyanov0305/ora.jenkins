@@ -7,10 +7,6 @@ const integrationSchema = mongoose.Schema({
         ref: 'User',
         require: true
     },
-    username: {
-        type: String,
-        required: true
-    },
     type: {
         type: String,
         enum: Object.values(integrationTypes),

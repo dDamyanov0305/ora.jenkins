@@ -1,16 +1,16 @@
 import { observable } from 'mobx';
 import storage from '../Services/perfectLocalStorage';
+import user from '../Stores/UserStore'
 
-class UserStore {
+class WorkspaceStore {
 
 	@observable token;
 	@observable loggedIn;
 	@observable id;
 
 	constructor() {
-		this.loggedIn = false;
-		const token = storage.get('ora.ci_token');
-		if (token) {
+        
+		if (user.loggedtoken) {
 			console.log(token)
 			fetch('http://localhost:5000/users/me',{
 				headers:{'Authorization':'Bearer '+token}

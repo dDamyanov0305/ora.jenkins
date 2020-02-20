@@ -54,10 +54,11 @@ userSchema.methods.generateAuthToken = async function() {
 
 userSchema.statics.findByCredentials = async (email, password) => {
     const user = await User.findOne({email})
-
+    console.log(user)
     if (!user) {
         throw new Error('Could\'t find user with that email')
     }
+    console.log('vliza')
 
     const isPasswordMatch = await bcrypt.compare(password, user.password)
 

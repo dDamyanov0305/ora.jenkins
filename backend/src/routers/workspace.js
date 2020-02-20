@@ -5,24 +5,25 @@ const Workspace = require('../models/Workspace')
 const checkPermission = require('../middleware/checkPermission')
 
 router.get('/workspaces/all', auth, async(req, res) => {
-
+console.log("EEEEE") 
     try{
         const workspaces = await Workspace.find({ members: req.user._id })
 
         if(!workspaces) 
             res.status(404).send('authenticated user doesn\'t have any workspaces')
 
-        res.json(workspaces)
+           
+        res.json({workspaces})
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
       
 })
 
 router.post('/workspaces/get', [auth, checkPermission], async(req, res) => {
-    res.send(200).json(req.workspace)
+    res.status(200).json({workspace:req.workspace})
 })
 
 router.post('/workspaces/create', auth, async (req, res) => {
@@ -31,11 +32,11 @@ router.post('/workspaces/create', auth, async (req, res) => {
 
     try{
         const workspace = await Workspace.create({ name, members: [req.user._id], owner_id: req.user._id, create_date: Date.now() })
-        res.status(201).json(workspace)
+        res.status(201).json({workspace})
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 
@@ -49,7 +50,7 @@ router.post('/workspaces/add_member/request', auth, async(req, res) => {
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 
 })
@@ -66,11 +67,11 @@ router.delete('/workspaces/delete', auth, async(req, res) => {
 
     try{
         await Workspace.deleteOne({ _id: workspace_id })
-        res.sendStatus(200)
+        res.status(200).send()
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 

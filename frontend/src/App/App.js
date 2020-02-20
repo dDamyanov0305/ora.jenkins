@@ -12,12 +12,16 @@ import ProjectForm from './ProjectForm/ProjectForm'
 class App extends Component{
   constructor(props){
     super(props)
-    //this.loginCheck();
     console.log(user)
+    //this.loginCheck()
     const { history, location } = this.props;
     routeStore.update(history, location);
     window.authDone = this.authDone
   }
+
+  // componentDidUpdate(){
+  //   this.loginCheck()
+  // }
 
 
   componentWillReceiveProps({ history, location }) {
@@ -26,40 +30,41 @@ class App extends Component{
 
   
   loginCheck() {
-		if (user.loggedIn) this.props.history.push('/dashboard');
-		else if (!user.loggedIn && this.props.location.pathname !== '/login') this.props.history.push('/login');
+    console.log(user.loggedIn, user.loggedIn===true)
+    if(user.loggedIn && routeStore.pathname === '/login'){
+      this.props.history.push('/dashboard');
+    }
+    else if(!user.loggedIn && routeStore.pathname !== '/login'){
+      this.props.history.push('/login');
+    }
   }
 
-  authDone = async (code, state) => {
-    console.log(user.token)
+  authDone = async (code) => {
+
     if(code){
-      console.log('OOP')
+      
       const result = await fetch(`http://localhost:5000/github/oauth?code=${code}`,{
         headers: {
-          'Content-Type':'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZTJmMWQzZDllNDVhODY4ZjgzNTFhZjIiLCJpYXQiOjE1ODAxNDU5ODF9._9axXOb7NOY4Nvg991eWRcK_oOrzpaARaI5CTcUzI9U`
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZTRlOTIyNDQyNWY2MTRlYWYwMjAzZjciLCJpYXQiOjE1ODIyMDgxMDZ9.kOZrCRoyVRgFTOmavs6XqCzOfrAtP8KuB8CCx0VxQhU`
         }
       })
-      console.log(result)
+   
       if(result.status >= 200 && result.status < 300){
         routeStore.push('/create-project')
       }
     }
     
   }
-  
-  componentWillUnmount(){
-    routeStore.push('/');
-  }
 
   render(){
     return (
       <div>
+        {user.email}
         <Switch>
           <Route path="/dashboard" component={Dashboard}/>
           <Route path="/login" component={Login}/>
-          <Route path="/sign-up" component={Register}/>
-          <Route path="/create-project" component={ProjectForm}/>
+          <Route path="/register" component={Register}/>
+          <Route path="/project/create" component={ProjectForm}/>
           <Route path="/github/oauth/callback" component={AuthCallback}/>
         </Switch>
       </div>
@@ -68,15 +73,6 @@ class App extends Component{
   }
 }
 
-class OauthCallback extends Component{
-  constructor(props){
-    super(props)
-  }
-
-  componentDidMount(){
-    
-  }
-}
 
 
 

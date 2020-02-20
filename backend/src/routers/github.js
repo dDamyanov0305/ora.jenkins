@@ -9,9 +9,10 @@ const fetch = require('node-fetch')
 router.get('/github/oauth', auth, async (req, res) => {
 
     const { code } = req.query
+    console.log("vliza")
 
     if(!code)
-        res.sendStatus(403)
+        res.status(403).send()
     
     try{
         const result = await fetch(`https://github.com/login/oauth/access_token?client_id=${process.env.GITHUB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITHUB_OAUTH_CLIENT_SECRET}&code=${code}`,
@@ -21,18 +22,19 @@ router.get('/github/oauth', auth, async (req, res) => {
         })
     
         if(result.status < 200 || result.status >= 300){
-            res.sendStatus(result.status)
+            res.status(result.status).send()
         }
         else{
             const data = await result.json()
+            console.log('token: ',data.access_token)
             const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.GITHUB, token:data.access_token })
-            res.sendStatus(201).json({integration})
+            res.status(201).json({integration})
         }
 
     }
-    catch(err){
-        console.log(err)
-        res.sendStatus(500)
+    catch(error){
+        console.log(error)
+        res.status(500).json({error})
     }
 
 })
@@ -42,7 +44,7 @@ router.get('/github/repos', auth, async (req, res) => {
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
 
     if(!integration){
-        res.sendStatus(400)
+        res.status(400)
     }
 
     const result = await fetch('https://api.github.com/user/repos',{
@@ -53,7 +55,7 @@ router.get('/github/repos', auth, async (req, res) => {
     })
 
     if(result.status < 200 || result.status >= 300){
-        res.sendStatus(result.status)
+        res.status(result.status)
     }
     else{
         const projects = await res.json()

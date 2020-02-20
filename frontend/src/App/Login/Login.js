@@ -2,17 +2,6 @@ import React, { Component } from 'react';
 import routeStore from '../../Stores/RouteStore';
 import user from '../../Stores/UserStore';
 
-function status(response) {
-    if (response.status >= 200 && response.status < 300) {
-        return Promise.resolve(response)
-    } else {
-        return Promise.reject(new Error(response.statusText))
-    }
-}
-  
-function json(response) {
-    return response.json()
-}
   
 
 class Login extends Component{
@@ -44,7 +33,6 @@ class Login extends Component{
         try{
             const res = await fetch('http://localhost:5000/users/login',{
                 method:'POST',
-                mode:'cors',
                 headers:{"Content-type": "application/json"},
                 body: JSON.stringify(this.state.creds)
             })
@@ -66,27 +54,27 @@ class Login extends Component{
     }
 
     changeForm = () => {
-        routeStore.push('/sign-up')
+        routeStore.push('/register')
     }
 
     render(){
         return(
-        <div>
-            <p>{this.state.errorText}</p>
-            <form onSubmit={this.handleLogin}>
-            <label>
-                e-mail
-                <input type="text" name="email" value={this.state.email} onChange={this.handleChange}/>
-            </label>
-            <label>
-                password
-                <input type={this.state.showPass?"text":"password"} name="password" value={this.state.password} onChange={this.handleChange}/>
-            </label>
-            <p onClick={this.showPassword}>{this.state.showPass?"hide":"show"} password</p>
-            <input type="submit" value="Sign in"/>
-            </form>
-            <p onClick={this.changeForm}>Don't have an account yet? Sign up</p>
-        </div>
+            <div>
+                <p>{this.state.errorText}</p>
+                <form onSubmit={this.handleLogin}>
+                <label>
+                    e-mail
+                    <input type="text" name="email" value={this.state.email} onChange={this.handleChange}/>
+                </label>
+                <label>
+                    password
+                    <input type={this.state.showPass?"text":"password"} name="password" value={this.state.password} onChange={this.handleChange}/>
+                </label>
+                <p onClick={this.showPassword}>{this.state.showPass?"hide":"show"} password</p>
+                <input type="submit" value="Sign in"/>
+                </form>
+                <p onClick={this.changeForm}>Don't have an account yet? Sign up</p>
+            </div>
         )
     }
 }

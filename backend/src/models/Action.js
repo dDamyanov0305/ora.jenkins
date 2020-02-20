@@ -20,6 +20,8 @@ const actionSchema = mongoose.Schema({
         enum: Object.values(triggerTimes),
         require: true
     },
+    execute_commands: [String],
+    setup_commands: [String],
     variables:[
         {
             key: String,    
@@ -35,14 +37,12 @@ const actionSchema = mongoose.Schema({
         type: String,
         default: null
     },
+    docker_image_name: String,
+    docker_image_tag: String,
     task_linkage:{
         type: Boolean,
         default: null
     },
-    docker_image_name: String,
-    docker_image_tag: String,
-    execute_commands: [String],
-    setup_commands: [String],
     ora_task_id: String,
     ora_project_id: String,
     ora_list_id_on_success: String,
@@ -50,7 +50,7 @@ const actionSchema = mongoose.Schema({
 
 })
 
-actionSchema.methods.build = async function(triggerMode, comment, executor, revision){
+actionSchema.methods.build = async function(triggerMode, comment, executor, revision, execution_id){
 
     const number = await Execution.count({action_id:this._id}) 
 
@@ -67,7 +67,6 @@ actionSchema.methods.build = async function(triggerMode, comment, executor, revi
 
     const container = docker.getContainer(this.docker_container_id)
     const info = await container.inspect()
-
     if(!info.State.Running) await container.start()
        
     const pipeline = await Pipeline.findOne({_id: this.pipeline_id})
@@ -136,6 +135,10 @@ actionSchema.methods.build = async function(triggerMode, comment, executor, revi
         if(execution.status === executionStatus.SUCCESSFUL && nextAction && !pipeline.run_in_parallel)
             nextAction.build(triggerMode, comment, executor, revision)
 
+        if(!nextAction){
+            this.build_image()
+        }
+
     })
 }
 
@@ -175,6 +178,42 @@ const emailAssignees = async (project_id ,task_id, token) => {
           });
 
     }
+
+}
+
+actionSchema.methods.build_image = async function(dir_name){
+
+    const out = fs.createWriteStream('../../output.tar')
+    const stream = await container.getArchive({id: container.id, path: dir_name})
+    stream.pipe(out) 
+
+    stream.on('end', async () => {
+        const re = fs.createReadStream('../../output.tar')
+        const resp = await docker.buildImage(
+            re, 
+            {
+                t: 'dimitardocker/ora.jenkins:middle', 
+                dockerfile: `./${dir_name}/Dockerfile`, 
+                
+            }
+        )
+        resp.on('data', async (data) => {
+           
+            if(successful_build(data)){
+
+                const img = docker.getImage('dimitardocker/ora.jenkins:middle')
+                const r = await img.push({'X-Registry-Auth':base64auth})
+
+                r.on('data',data => console.log(data.toString()))
+                r.on('error',(error) => console.log(error))
+                r.on('end',() => console.log('end1'))
+
+            }
+        })
+        resp.on('error',(error) => console.log(error))
+        resp.on('end',() => console.log('end2'))
+    })
+
 
 }
 

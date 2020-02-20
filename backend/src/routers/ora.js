@@ -43,9 +43,9 @@ router.get('/ora/oauth', auth, async (req, res) => {
         }
 
     }
-    catch(err){
-        console.log(err)
-        res.sendStatus(500)
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
     }
 
 })
@@ -56,7 +56,7 @@ router.get('/ora/projects', auth, async (req, res) => {
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})
 
     if(!integration){
-        res.sendStatus(400)
+        res.status(400).send()
     }
 
     const result = await fetch('https://api.ora.pm/projects',{
@@ -64,7 +64,7 @@ router.get('/ora/projects', auth, async (req, res) => {
     })
 
     if(result.status < 200 || result.status >= 300){
-        res.sendStatus(result.status)
+        res.status(result.status).send()
     }else{
         const data = await result.json()
         res.json({projects:data.data})
@@ -76,7 +76,7 @@ router.get('/ora/tasks', auth, async (req, res) => {
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})
 
     if(!integration){
-        res.sendStatus(400)
+        res.status(400).send()
     }
 
     const { project_id } = req.body
@@ -86,7 +86,7 @@ router.get('/ora/tasks', auth, async (req, res) => {
     })
 
     if(result.status < 200 || result.status >= 300){
-        res.sendStatus(result.status)
+        res.status(result.status).send()
     }else{
         const data = await result.json()
         res.json({tasks:data.data})
@@ -99,7 +99,7 @@ router.get('/ora/lists', auth, async (req, res) => {
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})
 
     if(!integration){
-        res.sendStatus(400)
+        res.status(400).send()
     }
 
     const { project_id } = req.body
@@ -109,7 +109,7 @@ router.get('/ora/lists', auth, async (req, res) => {
     })
 
     if(result.status < 200 || result.status >= 300){
-        res.sendStatus(result.status)
+        res.status(result.status).send()
     }else{
         const data = await result.json()
         res.json({tasks:data.data})
@@ -121,7 +121,7 @@ router.get('/ora/linkAction', auth, async (req, res) => {
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})
 
     if(!integration){
-        res.sendStatus(400)
+        res.status(400).send()
     }
 
     const { ora_project_id, ora_task_id, ora_list_id_on_failure, ora_list_id_on_success, action_id } = req.body

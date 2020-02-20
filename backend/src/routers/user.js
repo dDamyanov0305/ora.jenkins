@@ -8,17 +8,16 @@ const bcrypt = require('bcryptjs')
 
 router.post('/users/create', async (req, res) => {
 
-    console.log(req.body)
     try {
 
-        let user = await User.findOne({ email })
+        let user = await User.findOne({ email:req.body.email })
 
         if(user)
             throw new Error('This email is taken')
 
         user = new User(req.body)
         await user.save()
-        user.token = await user.generateAuthToken()
+        const token = await user.generateAuthToken()
 
         await Workspace.create({
             name: req.body.name, 
@@ -27,27 +26,32 @@ router.post('/users/create', async (req, res) => {
             members:[user._id]
         })
 
-        res.status(201).json({user})
+        res.status(201).json({user, token})
     } catch (error) {
-        res.status(500).json({error})
+        res.status(500).json({error:error.message})
     }
 })
 
 router.post('/users/login', async(req, res) => {
-    const { email, password } = req.body   
+    const { email, password } = req.body  
     
     try {
-        const user = User.findByCredentials(email, password)
-        user.token = await user.generateAuthToken()
-        res.status(200).json({user})
+        const user = await User.findByCredentials(email, password)
+
+        if(!user){
+            res.status(404).send()
+        }
+
+        const token = await user.generateAuthToken()
+
+        res.json({user, token})
     } catch (error) {
-        console.log({error})
-        res.sendStatus(500)
+        res.status(500).json({error:error.message})
     }
 })
 
 router.get('/users/me', auth, async(req, res) => {
-    res.send(req.user)
+    res.json({user:req.user, token: req.token})
 })
 
 router.post('/users/me/logout', auth, async (req, res) => {
@@ -56,7 +60,7 @@ router.post('/users/me/logout', auth, async (req, res) => {
         await req.user.save()
         res.send()
     } catch (error) {
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 
@@ -66,8 +70,13 @@ router.post('/users/me/logoutall', auth, async(req, res) => {
         await req.user.save()
         res.send()
     } catch (error) {
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
+})
+
+router.get('/users/all', async (req, res) => {
+    const users = await User.find({})
+    res.json({users})
 })
 
 module.exports = router

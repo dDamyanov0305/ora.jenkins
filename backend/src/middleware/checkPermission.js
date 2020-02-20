@@ -9,17 +9,17 @@ module.exports = async (req, res, next) => {
         const workspace = await Workspace.findOne({ _id: workspace_id })
 
         if(!workspace)
-            res.sendStatus(404)
+            res.status(404).send()
         
         if(!workspace.members.includes(req.user._id))
-            res.sendStatus(403)
+            res.status(403).send()
     
         req.workspace = workspace    
         next()
     }
     catch(error){
         console.log(error)
-        res.sendStatus(500)
+        res.status(500).send()
     }
 }
 

@@ -7,12 +7,28 @@ const Integration = require('../models/Integration')
 router.get('/integrations/all', auth, async(req, res) => {
 
     try{
-        const integrations = await Integration.find({ user_id: req.user_id })
-        res.status(200).json(integrations)
+        const integrations = await Integration.find({ user_id: req.user._id })
+        res.status(200).json({integrations})
     }
     catch(error){
         console.log(error)
         res.status(500).send(error)
+    }
+
+})
+
+
+router.delete('/integrations/all', auth, async(req, res) => {
+
+    const { type } = req.body
+
+    try{
+        const integrations = await Integration.deleteMany({ user_id: req.user._id, type })
+        res.status(200).json({integrations})
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
     }
 
 })
