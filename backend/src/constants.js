@@ -2,7 +2,7 @@ module.exports = {
     triggerModes: {
         MANUAL:'MANUAL',
         PUSH:'PUSH',
-        RECCURENTLY:'RECCURENTLY'
+        RECCURENTLY:'RECURRENT'
     },
     integrationTypes: {
         GITHUB: 'GITHUB',
@@ -30,6 +30,12 @@ module.exports = {
     },
     hostingProviders:{
         GITHUB: 'GITHUB'
-    }
+    },
+    emailConditions: {
+        ON_EVERY_EXECUTION: 'ON_EVERY_EXECUTION',
+        ON_SUCCESS: 'ON_SUCCESS',
+        ON_FAILURE: 'ON_FAILURE',
+        NEVER:'NEVER'
+    },
 }
 

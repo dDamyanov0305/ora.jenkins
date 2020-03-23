@@ -7,6 +7,7 @@ const integrationSchema = mongoose.Schema({
         ref: 'User',
         require: true
     },
+    username:String,
     type: {
         type: String,
         enum: Object.values(integrationTypes),
@@ -15,8 +16,11 @@ const integrationSchema = mongoose.Schema({
     token: {
         type: String,
         required: true
-    }
-    
+    },
+    create_date:{
+        type: Date,
+        default: Date.now()
+    }    
 })
 
 const Integration = mongoose.model('Integration', integrationSchema)

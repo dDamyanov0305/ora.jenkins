@@ -8,26 +8,35 @@ const bcrypt = require('bcryptjs')
 
 router.post('/users/create', async (req, res) => {
 
+    const {name, email, password, confirmedPassword } = req.body
+
     try {
 
-        let user = await User.findOne({ email:req.body.email })
+        if(password.lenght < 5)
+            throw new Error("Your password must be at least 5 characters long.")
+        
+
+        if(password !== confirmedPassword)
+            throw new Error("Your passwords don't match.")
+    
+        let user = await User.findOne({ email })
 
         if(user)
-            throw new Error('This email is taken')
+            throw new Error('This email is taken.')
 
-        user = new User(req.body)
+        user = await User.create({name, email, password})
         await user.save()
         const token = await user.generateAuthToken()
 
         await Workspace.create({
-            name: req.body.name, 
-            create_date: Date.now(), 
+            name: name, 
             owner_id: user._id, 
             members:[user._id]
         })
 
         res.status(201).json({user, token})
-    } catch (error) {
+    } 
+    catch (error) {
         res.status(500).json({error:error.message})
     }
 })
@@ -38,20 +47,20 @@ router.post('/users/login', async(req, res) => {
     try {
         const user = await User.findByCredentials(email, password)
 
-        if(!user){
-            res.status(404).send()
-        }
-
         const token = await user.generateAuthToken()
 
-        res.json({user, token})
+        const integrations = await Integration.find({ user_id: user._id })
+
+        res.json({user, token, integrations})
     } catch (error) {
         res.status(500).json({error:error.message})
     }
 })
 
 router.get('/users/me', auth, async(req, res) => {
-    res.json({user:req.user, token: req.token})
+    const integrations = await Integration.find({ user_id: req.user._id })
+    console.log(integrations)
+    res.json({user:req.user, token: req.token, integrations})
 })
 
 router.post('/users/me/logout', auth, async (req, res) => {
@@ -76,7 +85,37 @@ router.post('/users/me/logoutall', auth, async(req, res) => {
 
 router.get('/users/all', async (req, res) => {
     const users = await User.find({})
-    res.json({users})
+    res.status(200).json({users})
+})
+
+router.delete('/users/all', async (req, res) => {
+
+    try{
+        const users = await User.find({})
+        users.forEach(user => user.delete())
+        res.status(200).send()
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
+    }
+
+})
+
+router.delete('/users', async (req, res) => {
+
+    const { user_id } = req.body
+
+    try{
+        const user = await User.findById(user_id)
+        user.delete()
+        res.status(200).send()
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
+    }
+
 })
 
 module.exports = router

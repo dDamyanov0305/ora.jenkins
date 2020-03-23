@@ -3,23 +3,19 @@ const User = require('../models/User')
 
 
 const auth = async(req, res, next) => {
+
+    console.log('vliza')
+
     const tokens = req.header('Authorization')
+    let token = null
 
     try {
 
-        let token = null
-
-        if(!tokens){
-            return res.status(403).send()
+        if(!tokens || !tokens.includes('Bearer ') || !(token = tokens.replace('Bearer ', ''))){
+            res.status(403).json({error:'No authentication token present in headers.'})
         }
 
-        if(tokens.includes('Bearer '))
-            token = tokens.replace('Bearer ', '')
-        
-        if(!token){
-            return res.status(403).send()
-        }   
-    
+
     
         const data = jwt.verify(token, process.env.JWT_KEY)
         const user = await User.findOne({ _id: data._id, 'tokens.token': token })

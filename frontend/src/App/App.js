@@ -1,92 +1,144 @@
-import React, { Component, Suspense } from 'react';
+import React from 'react';
 import { observer } from 'mobx-react';
-import { Switch, Route, withRouter, useParams, useHistory, Redirect, useLocation } from 'react-router-dom';
+import { Switch, Route, withRouter } from 'react-router-dom';
 import routeStore from '../Stores/RouteStore';
 import user from '../Stores/UserStore';
-import Dashboard from './Dashboard/Dashboard'
+import WorkspacesList from './WorkspacesList/WorkspacesList'
 import Login from './Login/Login'
 import Register from './Register/Register'
 import ProjectForm from './ProjectForm/ProjectForm'
+import ActionForm from './ActionForm/ActionForm'
+import PipelinesPanel from './PipelinesPanel/PipelinesPanel';
+import ProjectsPanel from './ProjectsPanel/ProjectsPanel'
+import ActionsPanel from './ActionsPanel/ActionsPanel';
+import ExecutionsPanel from './ExecutionsPanel/ExecutionsPanel';
+import PipelineForm from './PipelineForm/PipelineForm';
+import providerStore from '../Stores/ProviderStore';
+import actionFormStore from '../Stores/ActionFormStore';
 
 
-class App extends Component{
-  constructor(props){
-    super(props)
-    console.log(user)
-    //this.loginCheck()
-    const { history, location } = this.props;
-    routeStore.update(history, location);
-    window.authDone = this.authDone
+const GithubAuthCallback = () => 
+{
+  const urlParams = new URLSearchParams(window.location.search);
+  console.log(urlParams)
+
+  if(window.opener)
+  {
+    alert(urlParams.get('code'))
+    window.opener.github_auth_done(urlParams.get('code'))
   }
-
-  // componentDidUpdate(){
-  //   this.loginCheck()
-  // }
-
-
-  componentWillReceiveProps({ history, location }) {
-		routeStore.update(history, location);
-  }
-
-  
-  loginCheck() {
-    console.log(user.loggedIn, user.loggedIn===true)
-    if(user.loggedIn && routeStore.pathname === '/login'){
-      this.props.history.push('/dashboard');
-    }
-    else if(!user.loggedIn && routeStore.pathname !== '/login'){
-      this.props.history.push('/login');
-    }
-  }
-
-  authDone = async (code) => {
-
-    if(code){
-      
-      const result = await fetch(`http://localhost:5000/github/oauth?code=${code}`,{
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZTRlOTIyNDQyNWY2MTRlYWYwMjAzZjciLCJpYXQiOjE1ODIyMDgxMDZ9.kOZrCRoyVRgFTOmavs6XqCzOfrAtP8KuB8CCx0VxQhU`
-        }
-      })
-   
-      if(result.status >= 200 && result.status < 300){
-        routeStore.push('/create-project')
-      }
-    }
-    
-  }
-
-  render(){
-    return (
-      <div>
-        {user.email}
-        <Switch>
-          <Route path="/dashboard" component={Dashboard}/>
-          <Route path="/login" component={Login}/>
-          <Route path="/register" component={Register}/>
-          <Route path="/project/create" component={ProjectForm}/>
-          <Route path="/github/oauth/callback" component={AuthCallback}/>
-        </Switch>
-      </div>
-  
-    );
-  }
+  window.close()
+  return
 }
 
-
-
-
-const AuthCallback = () => {
+const OraAuthCallback = () => 
+{
   const urlParams = new URLSearchParams(window.location.search);
-  alert(urlParams.get('code'),urlParams.get('state'))
-  if(window.opener){
-    window.opener.authDone(urlParams.get('code'),urlParams.get('state'))
+  console.log(urlParams)
+
+  if(window.opener)
+  {
+    alert(urlParams.get('code'))
+    window.opener.ora_auth_done(urlParams.get('code'))
   }
   window.close()
   return null
 }
 
+async function github_auth_done(code) 
+{
+  console.log('vliza')
 
+  if(code)
+  {
+    const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/github/oauth?code=${code}`,
+    {
+      headers: {'Authorization': `Bearer ${user.token}`}
+    })
 
+    console.log(result.status)
+
+    if(result.status >= 200 && result.status < 300)
+    {
+      const data = result.json()
+      user.addIntegration(data)
+      providerStore.getRepos()
+      routeStore.push('/project/create')
+    }
+  }
+  else{
+    console.log('no code')
+  }
+
+}
+
+async function ora_auth_done(code) 
+{
+  console.log('vliza')
+
+  if(code)
+  {
+    const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/oauth?code=${code}`,
+    {
+      headers: {'Authorization': `Bearer ${user.token}`}
+    })
+
+    console.log(result.status)
+
+    if(result.status >= 200 && result.status < 300)
+    {
+      const data = result.json()
+      user.addIntegration(data)
+      actionFormStore.getProjects()
+      routeStore.push('/actions/create')
+    }
+  }
+  else{
+    console.log('no code')
+  }
+
+}
+
+const App = (props) => {
+
+  const { history, location } = props
+
+  routeStore.update(history, location)
+
+  window.github_auth_done = github_auth_done
+  window.ora_auth_done = ora_auth_done
+
+  if(!user.loggedIn && 
+    routeStore.pathname !== '/login' && 
+    routeStore.pathname !== '/register' && 
+    routeStore.pathname !== '/github/oauth/callback' &&
+    routeStore.pathname !== '/ora/oauth/callback')
+  {
+    routeStore.push('/login');
+  }
+  
+  return (
+    <div>
+      {user.email}
+      <button onClick={user.logout}>logout</button>
+      <WorkspacesList/>
+      <Switch>
+        <Route path="/login" component={Login}/>
+        <Route path="/register" component={Register}/>
+        <Route path="/projects" component={ProjectsPanel}/>
+        <Route path="/project/create" component={ProjectForm}/>
+        <Route path="/pipeline/create" component={PipelineForm}/>
+        <Route path="/actions/create" component={ActionForm}/>
+        <Route path="/project/:project_name/pipelines/:pipeline_name" component={ActionsPanel}/>
+        <Route path="/project/:project_name/pipelines/:pipeline_name/executions" component={ExecutionsPanel}/>
+        <Route path="/project/:project_name/pipelines" component={PipelinesPanel}/>
+        <Route path="/github/oauth/callback" component={GithubAuthCallback}/>
+        <Route path="/ora/oauth/callback" component={OraAuthCallback}/>
+      </Switch>
+    </div>
+
+  );
+  
+}
 
 export default withRouter(observer(App));

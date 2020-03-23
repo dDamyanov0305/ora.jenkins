@@ -8,12 +8,17 @@ const fetch = require('node-fetch')
 
 router.get('/ora/oauth', auth, async (req, res) => {
 
-    const { code } = req.query
+    const integration = await Integration.findOne({ user_id: req.user._id, type: integrationTypes.ORA })
 
-    if(!code){
-        console.log('NO CODE')
-        res.redirect('http://localhost:3000/dashboard')
-    }
+    if(integration)
+        return res.status(200).json({integration})
+    
+
+    const { code } = req.query
+    console.log(code,  process.env.ORA_OAUTH_CLIENT_ID, process.env.ORA_OAUTH_CLIENT_SECRET )
+
+    if(!code)
+        res.status(403).send()    
     
     try{
         const result = await fetch(`https://api.ora.pm/oauth/token`,
@@ -25,21 +30,17 @@ router.get('/ora/oauth', auth, async (req, res) => {
                 client_secret: process.env.ORA_OAUTH_CLIENT_SECRET,
                 code,
                 grant_type:'authorization_code',
-                redirect_uri:'http://localhost:5000/ora/oauth'
+                redirect_uri:'http://localhost:3000/ora/oauth/callback'
             })
         })
-    
+        const data = await result.json()
+        console.log(data)
         if(result.status < 200 || result.status >= 300){
-            console.log(result.status)
-            res.redirect('http://localhost:3000/dashboard')
+            res.status(result.status).send()        
         }
         else{
-            const data = await result.json()
-            const integrtion = await Integration.create({ user_id: req.user._id, type:integrationTypes.ORA, token:data.access_token })
-            if(!integrtion) 
-                res.redirect('http://localhost:3000/dashboard')
-
-            res.redirect('http://localhost:3000/successful')
+            const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.ORA, token:data.access_token })
+            res.status(201).json({integration})
         }
 
     }
@@ -71,7 +72,7 @@ router.get('/ora/projects', auth, async (req, res) => {
     }
 })
 
-router.get('/ora/tasks', auth, async (req, res) => {
+router.post('/ora/tasks_and_lists', auth, async (req, res) => {
 
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})
 
@@ -81,18 +82,27 @@ router.get('/ora/tasks', auth, async (req, res) => {
 
     const { project_id } = req.body
 
-    const result = await fetch(`https://api.ora.pm/projects/${project_id}/tasks`,{
+    const tasksRes = await fetch(`https://api.ora.pm/projects/${project_id}/tasks`,{
         headers:{"Authorization": "Bearer " + integration.token}
     })
 
-    if(result.status < 200 || result.status >= 300){
-        res.status(result.status).send()
-    }else{
-        const data = await result.json()
-        res.json({tasks:data.data})
+    const listsRes = await fetch(`https://api.ora.pm/projects/${project_id}/lists`,{
+        headers:{"Authorization": "Bearer " + integration.token}
+    })
+
+    if(tasksRes.status < 200 || tasksRes.status >= 300 || listsRes.status < 200 || listsRes.status >= 300)
+    {
+        res.status(tasksRes.status).send()
+    }
+    else
+    {
+        const {data: tasks} = await tasksRes.json()
+        const {data: lists} = await listsRes.json()
+        res.status(200).json({tasks, lists})
     }
 })
-
+//task 2885761
+//list 820557
 
 router.get('/ora/lists', auth, async (req, res) => {
 

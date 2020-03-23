@@ -2,24 +2,41 @@ const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
 const Pipeline = require('../models/Pipeline')
+const Project = require('../models/Project')
 const Action = require('../models/Action')
 const checkPermission = require('../middleware/checkPermission')
-const triggerModes  = require('../constants').triggerModes
 const docker = require('../docker/Docker')
-const fs = require('fs')
-const Stream = require('stream')
+const archiver = require('archiver')
+const streamBuffers = require('stream-buffers');
+const transporter = require('../transporter')
+const { exec: node_exec } = require('child_process');
 
 router.post('/actions/all', [auth, checkPermission], async(req, res) => {
 
-    const { piepline_id } = req.body
+    const { pipeline_id } = req.body
 
     try{
-        const actions = await Action.find({ piepline_id })
-        res.status(200).json(actions)
+        const actions = await Pipeline.getActionsForPipeline(pipeline_id)
+        res.status(200).json({actions})
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
+    }
+
+})
+
+router.post('/actions/all2', [auth, checkPermission], async(req, res) => {
+
+    const { pipeline_id } = req.body
+
+    try{
+        const actions = await Action.find({pipeline_id})
+        res.status(200).json({actions})
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
     }
 
 })
@@ -28,17 +45,17 @@ router.post('/actions/all', [auth, checkPermission], async(req, res) => {
 
 router.post('/actions/get', [auth, checkPermission], async(req, res) => {
 
-    const { piepline_id, action_id } = req.body
+    const { pipeline_id, action_id } = req.body
 
     try{
-        const action = await Action.findOne({ piepline_id, _id: action_id })
+        const action = await Action.findOne({ pipeline_id, _id: action_id })
         if(!action)
-            res.status(404).send('Couldn\'t find action with that id and name.')
+            res.status(404).json({error:'Couldn\'t find action with that id and name.'})
         res.status(200).json(action)
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
     
 })
@@ -46,11 +63,30 @@ router.post('/actions/get', [auth, checkPermission], async(req, res) => {
 
 router.post('/actions/create', [auth, checkPermission], async(req, res) => {
 
-    const { action_name: name, execute_commands, trigger_time, pipeline_id, prev_action_id, variables, docker_iamge_name, docker_iamge_tag } = req.body
+    const { 
+        name, 
+        execute_commands, 
+        pipeline_id, 
+        prev_action_id, 
+        next,
+        variables, 
+        docker_image_name, 
+        docker_image_tag,
+        shell_script,
+        task_linkage,
+        ora_task_id,
+        ora_project_id,
+        ora_list_id_on_success,
+        ora_list_id_on_failure
+    } = req.body
+
+    
+
+    console.log(req.body)
 
     try{
-        const pipeline = await Pipeline.findOne({_id:pipeline_id})
-        const project = await project.findOne({_id:pipeline.project_id})
+        const pipeline = await Pipeline.findById(pipeline_id)
+        const project = await Project.findById(pipeline.project_id)
 
         const container = await docker.createContainer({
             AttachStdin: false,
@@ -58,177 +94,234 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
             AttachStderr: true,
             Tty: true,
             Image: docker_image_name,
-            Env: variables.map(({key, value})=>`${key}=${value}`)
+            Env: JSON.parse(variables).map(({key, value})=>`${key}=${value}`)
         })
 
-        if(!container){
-            res.status(500).send()
+        if(!container)
+            throw new Error("Unable to create container for action.")
+        
+
+        const action = new Action({ 
+            name, 
+            execute_commands:JSON.parse(execute_commands), 
+            pipeline_id, 
+            prev_action_id: prev_action_id || null, 
+            variables:JSON.parse(variables), 
+            docker_image_name, 
+            docker_image_tag, 
+            docker_container_id: container.id,
+            task_linkage:JSON.parse(task_linkage),
+            shell_script:JSON.parse(shell_script),
+            ora_task_id:JSON.parse(ora_task_id),
+            ora_project_id:JSON.parse(ora_project_id),
+            ora_list_id_on_success:JSON.parse(ora_list_id_on_success),
+            ora_list_id_on_failure:JSON.parse(ora_list_id_on_failure) 
+        })
+
+        if(!action){
+            throw new Error("Unable to create action.")
         }
-
-        const action =  await Action.create({ name, execute_commands, trigger_time, pipeline_id, prev_action_id, variables, docker_iamge_name, docker_iamge_tag, docker_container_id: container.id })
-        if(!action)
-            res.status(500).send()
         else{
-
-            const setup_commands = [
-                `git clone https://github.com/${project.repository}.git`, 
-                `mkdir /var/log/ora.jenkins`
+            action.setup_commands = [
+                `mkdir /var/log/ora.ci`,
+                `apt-get update && apt-get upgrade -y && apt-get install -y git && git clone https://github.com/${project.repository}.git`
             ]
-    
-            if(pipeline.triggerMode === triggerModes.RECCURENTLY){
-                setup_commands.concat([
-                    'apt-get update && apt-get -y install cron && sudo apt-get -y install curl',
-                    'touch /var/log/cron.log && touch /etc/cron.d/cron-job',
-                    `curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${req.token}" -d '{"triggerMode":"${triggerModes.RECCURENTLY}", "action_id":"${action_id}", "comment":"${req.body.comment}", "revision":"", "user_id":"${req.user._id}"}' ${process.env.SERVER_ADDRESS}/actions/execute`,
-                    'chmod 0644 /etc/cron.d/cron-job',
-                    'crontab /etc/cron.d/cron-job'
-                ])
+
+            if(next){
+                const next_action = await Action.findById(next)
+                next_action.prev_action_id = action._id
+                next_action.save()
             }
-    
-            action.setup_commands = setup_commands
-            action.save()
-    
+
+             if(JSON.parse(shell_script)){
+                let outputStreamBuffer = new streamBuffers.WritableStreamBuffer({
+                    initialSize: (1000 * 1024), 
+                    incrementAmount: (1000 * 1024) 
+                });
+                
+                let archive = archiver('zip', {
+                    zlib: { level: 9 }
+                });
+                archive.pipe(outputStreamBuffer);
+                
+                archive.append(req.files.execute_script.data, { name: "execute_script.sh"});
+                archive.finalize();
+                
+                outputStreamBuffer.end();
+
+                outputStreamBuffer.on('finish', () => {
+                    container.putArchive(outputStreamBuffer.getContents(),{path:'/bin'})
+                })
+
+                action.setup_commands.push('chmod +x /bin/execute_script.sh')
+             }
+
+            await container.start()
+
+            const exec = await container.exec({
+                AttachStdin: false,
+                AttachStdout: true,
+                AttachStderr: true,
+                Tty: true,
+                Cmd: ['/bin/bash', '-c', `${action.setup_commands.join(' && ')}`]
+            })
+
+            const stream = await exec.start({Tty:true})
+            stream.on('data', data => console.log(data.toString()))
     
             res.status(201).json({action})
         }
+        action.save()
 
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 
-router.post('/actions/execute', [auth, checkPermission], async (req, res) => {
 
-    const { action_id, comment, revision, triggerMode } = req.body
+router.delete('/actions/all', [auth, checkPermission], async(req, res) => {
+
+    const { pipeline_id } = req.body
 
     try{
-        const action = await Action.findOne({ _id: action_id })
-
-        if(!action)
-            res.status(404).send('Couldn\'t find action with that id and name.')
-
-        action.build(triggerMode, comment, req.user.name, revision)
-       
+        const actions = await Action.find({ pipeline_id })
+        actions.forEach(action => action.delete())
+        res.status(200).send()
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 
 router.delete('/actions', [auth, checkPermission], async(req, res) => {
 
-    const { piepline_id } = req.body
+    const { action_id } = req.body
+
+    console.log(action_id)
 
     try{
-        await Pipeline.deleteMany({piepline_id})
-        res.status(200)
+        const action = await Action.findById(action_id)
+        const result = await action.delete()
+        console.log(result)
+        res.status(200).send(result)
     }
     catch(error){
         console.log(error)
-        res.status(500).send(error)
+        res.status(500).json({error:error.message})
     }
 })
 
-router.delete('/action', [auth, checkPermission], async(req, res) => {
+router.post('/actions/test', async(req, res) => {
 
-    const { piepline_id, action_id } = req.body
+
+    console.log('iiiii')
+
+    const container = docker.getContainer("575a03090aaade68632bb7ea98ff8df66e487d1c6e89f887410a1636f2f13e62")
+
+    let outputStreamBuffer = new streamBuffers.WritableStreamBuffer({
+        initialSize: (1000 * 1024), 
+        incrementAmount: (1000 * 1024) 
+    });
+    
+    outputStreamBuffer.on('finish', async() => {
+        console.log('pp')
+        console.log(outputStreamBuffer.getContents())
+        const stream = await container.putArchive(outputStreamBuffer.getContents(),{path:'/bin'})
+
+        stream.on('data', data => console.log(data.toString()))
+    })
+   
+    
+    let archive = archiver('zip', {
+        zlib: { level: 9 }
+    });
+    archive.pipe(outputStreamBuffer);
+    
+    archive.append(Buffer.from(req.files.execute_script.data), { name: "execute_script.sh"});
+    archive.finalize();
+    
+    outputStreamBuffer.end();
+
+
+
+})
+
+
+
+const build_image2 = async(t, username, password, remote) => {
 
     try{
-        await Pipeline.deleteOne({piepline_id, action_id})
-        res.status(200)
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).send(error)
-    }
-})
+        console.log("stage 0")
 
-router.get('/action/test', async(req, res) => {
+        const stream = await docker.buildImage(null,{remote, t})
+        
+        console.log("stage 1")
 
-    container = await docker.getContainer("09f6d8625948a9258d73451097acbbe5c3d1f98340feac8443b89b792d3416c1")
-    const info = await container.inspect()
-    if(!info.State.Running) await container.start()
-    // const exec = await container.exec({
-    //     AttachStdin: false,
-    //     AttachStdout: true,
-    //     AttachStderr: true,
-    //     Tty: true,
-    //     Cmd: ['/bin/bash', '-c', `cd tp-app-2 && cat Dockerfile`]
-    // })
+        stream.on('data', data => console.log(data.toString()))
+        stream.on('error', () => console.log('ERROR'))
+        stream.on('end', async() => {
 
-    // const stream = await exec.start({Tty: true})
-    // stream.on('data', data => console.log(data.toString()))
+            console.log('stage 2')
+
+            const image = docker.getImage(t)
+            console.log(image)
+
+            if(image){
+
+                console.log('stage 3')
+
+                const container = await docker.createContainer({
+                    AttachStdin: false,
+                    AttachStdout: true,
+                    AttachStderr: true,
+                    Tty: true,
+                    Image: image.name,
+                })
+
+               await container.start()
+
+               console.log('stage 4')
+
+               const exec = await container.exec({
+                    AttachStdin: false,
+                    AttachStdout: true,
+                    AttachStderr: true,
+                    Tty: false,
+                    Cmd: ['/bin/bash', '-c', `ls`]
+                })
+
+                const exec_stream = await exec.start()
+
+                exec_stream.on('data', data => console.log(data.toString()))
+                exec_stream.on('end', ()=>{
+
+                    console.log('stage 5')
+
+                    node_exec(`docker login -u ${username} -p ${password} && docker push ${image.name}`,(error, stdout, stderr) => {
+                        
+                        if(error){
+                            console.error(`exec error: ${error}`);
+                            return
+                        }
+
+                        console.log(`stdout: ${stdout}`);
+                        console.error(`stderr: ${stderr}`);
 
 
-    build_image(container,'tp-app-2')
-    check_auth()
+                    })
+                    console.log('DONE')
+                })
 
-})
-
-const build_image = async (container, dir_name) => {
-
-    const out = fs.createWriteStream('../../output.tar')
-    const stream = await container.getArchive({id: container.id, path: dir_name})
-    stream.pipe(out) 
-
-    stream.on('end', async () => {
-        const re = fs.createReadStream('../../output.tar')
-        const resp = await docker.buildImage(
-            re, 
-            {
-                t: 'dimitardocker/ora.jenkins:middle', 
-                dockerfile: `./${dir_name}/Dockerfile`, 
-                
             }
-        )
-        resp.on('data', async (data) => {
-           
-            if(successful_build(data)){
-
-                const img = docker.getImage('dimitardocker/ora.jenkins:middle')
-                const r = await img.push({'X-Registry-Auth':base64auth})
-
-                r.on('data',data => console.log(data.toString()))
-                r.on('error',(error) => console.log(error))
-                r.on('end',() => console.log('end1'))
-
-            }
+            
         })
-        resp.on('error',(error) => console.log(error))
-        resp.on('end',() => console.log('end2'))
-    })
-
-
+    }catch(e){
+        console.log(e)
+    }
 }
-
-const successful_build = (data) => {
-    const obj = JSON.parse(data.toString())
-    const match = obj.stream && obj.stream.match(/Successfully built (.*)\n/) || null
-    return match
-}
-
-const base64auth = Buffer.from(JSON.stringify({ 
-    username:'dimitardocker',
-    password:'dockerAccount',
-    email:'collieryart@gmail.com',
-    serveraddress:'https://index.docker.io/v1/'
-})).toString('base64')
-
-const check_auth = async () => {
-
-    const a = await docker.checkAuth({
-        "username":"dimitardocker",
-        "password":"dockerAccount",
-        "email":"collieryart@gmail.com",
-        "serveraddress":"https://index.docker.io/v1/"
-    })
-
-    console.log(a)
-}
-
 
 
 module.exports = router

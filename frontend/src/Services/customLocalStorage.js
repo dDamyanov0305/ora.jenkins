@@ -28,7 +28,7 @@ function storage() {
 		return new TemporaryStorage();
 	}
 
-	try { // This try catch is meaningful -Nestorov
+	try {
 		localStorage.setItem(randomString, 1);
 		if (localStorage.getItem(randomString) !== '1') throw 'LS';
 		localStorage.removeItem(randomString);

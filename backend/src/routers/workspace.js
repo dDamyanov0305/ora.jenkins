@@ -5,10 +5,10 @@ const Workspace = require('../models/Workspace')
 const checkPermission = require('../middleware/checkPermission')
 
 router.get('/workspaces/all', auth, async(req, res) => {
-console.log("EEEEE") 
+
+
     try{
         const workspaces = await Workspace.find({ members: req.user._id })
-
         if(!workspaces) 
             res.status(404).send('authenticated user doesn\'t have any workspaces')
 
@@ -31,7 +31,7 @@ router.post('/workspaces/create', auth, async (req, res) => {
     const { name } = req.body
 
     try{
-        const workspace = await Workspace.create({ name, members: [req.user._id], owner_id: req.user._id, create_date: Date.now() })
+        const workspace = await Workspace.create({ name, members: [req.user._id], owner_id: req.user._id })
         res.status(201).json({workspace})
     }
     catch(error){
@@ -61,12 +61,13 @@ router.post('/workspaces/:workspace_id/add-member/confirm', auth, (req, res) => 
 
 })
 
-router.delete('/workspaces/delete', auth, async(req, res) => {
+router.delete('/workspaces', auth, async(req, res) => {
 
     const { workspace_id } = req.params
 
     try{
-        await Workspace.deleteOne({ _id: workspace_id })
+        const workspace = await Workspace.findById(workspace_id)
+        workspace.delete()
         res.status(200).send()
     }
     catch(error){
@@ -75,6 +76,17 @@ router.delete('/workspaces/delete', auth, async(req, res) => {
     }
 })
 
+router.delete('/workspaces/all', async(req, res) => {
 
+    try{
+        const workspaces = await Workspace.find({})
+        workspaces.forEach(workspace => workspace.delete())
+        res.status(200).send()
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).send(error)
+    }
+})
 
 module.exports = router

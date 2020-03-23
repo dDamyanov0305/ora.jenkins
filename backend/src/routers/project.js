@@ -42,7 +42,7 @@ router.post('/projects/create', [auth, checkPermission], async(req, res) => {
     const { name, repository, hosting_provider } = req.body
 
     try{
-        const project = await Project.create({ name, repository, hosting_provider, workspace_id: req.workspace._id, assigned_team: [req.user._id], create_date: Date.now() })
+        const project = await Project.create({ name, repository, hosting_provider, workspace_id: req.workspace._id, assigned_team: [req.user._id] })
         res.status(201).json({project})
     }
     catch(error){
@@ -97,7 +97,8 @@ router.post('/projects/unassign', [auth, checkPermission], async(req, res) => {
 router.delete('/projects/all', [auth, checkPermission], async(req, res) => {
 
     try{
-        await Project.deleteMany({ workspace_id: req.workspace._id })
+        const projects = await Project.find({ workspace_id: req.workspace._id })
+        projects.forEach(project => project.delete())
         res.status(200).send()
     }
     catch(error){
@@ -105,6 +106,22 @@ router.delete('/projects/all', [auth, checkPermission], async(req, res) => {
         res.status(500).json({error:error.message})
     }
 })
+
+router.delete('/projects', [auth, checkPermission], async(req, res) => {
+
+    const { project_id } = req.body
+
+    try{
+        const project = await Project.findById(project_id)
+        project.delete()
+        res.status(200).send()
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
+    }
+})
+
 
 
 module.exports = router

@@ -1,5 +1,3 @@
-// https://codemotion.quip.com/JcLsAiVPaMh5
-
 import customLocalStorage from './customLocalStorage'
 
 function setObject(key, value) {

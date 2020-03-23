@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const Project = require('./Project')
 
 const workspaceSchema = mongoose.Schema({
     name:{
@@ -11,8 +12,24 @@ const workspaceSchema = mongoose.Schema({
         ref: 'User',
         require: true
     },
-    create_date: Date 
+    create_date:{
+        type: Date,
+        default: Date.now()
+    }
 })
+
+workspaceSchema.methods.delete = async function() {
+
+    const workspace = this
+
+    const projects = await Project.find({ workspace_id: workspace._id })
+
+    projects.forEach(async(project) => await project.delete())
+
+    const result = await Workspace.deleteOne({_id:workspace._id})
+    return result
+
+}
 
 const Workspace = mongoose.model('Workspace', workspaceSchema)
 

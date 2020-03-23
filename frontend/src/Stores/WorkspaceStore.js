@@ -1,43 +1,58 @@
-import { observable } from 'mobx';
+import { observable, action } from 'mobx';
 import storage from '../Services/perfectLocalStorage';
 import user from '../Stores/UserStore'
+import projectStore from './ProjectStore';
+import routeStore from './RouteStore';
 
 class WorkspaceStore {
 
-	@observable token;
-	@observable loggedIn;
-	@observable id;
+	@observable currentWorkspace;
+	@observable workspaces = [];
 
-	constructor() {
-        
-		if (user.loggedtoken) {
-			console.log(token)
-			fetch('http://localhost:5000/users/me',{
-				headers:{'Authorization':'Bearer '+token}
-			})
-			.then(res=>res.json())
-			.then(data=>this.setAccount(data))
+
+	@action setData({workspaces}) {
+		console.log(workspaces)
+		this.workspaces = workspaces;
+
+		let workspace_id = storage.get('ora.ci_workspace')
+		let selected = null
+
+		if(!workspace_id){
+			selected = this.workspaces.find(workspace => workspace.name === user.name)
+		}
+		else{
+			selected = this.workspaces.find(workspace => workspace._id === workspace_id)
 		}
 
+		this.selectWorkspace(selected)
+		
 	}
 
-
-	setAccount({user: account, token}) {
-		console.log(account)
-		this.loggedIn = true;
-		this.id = account._id;
-		this.name = account.name;
-		this.email = account.email;
-		this.token = token
-		storage.set('ora.ci_token', token);
+	@action selectWorkspace(workspace){
+		this.currentWorkspace = workspace
+		storage.set('ora.ci_workspace', this.currentWorkspace._id)
+		projectStore.getProjects()
+		routeStore.push("/projects")
 	}
 
-	logout() {
-		storage.clear();
-		document.location.reload();
-	}
+	@action async getWorkspaces(){
+        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/workspaces/all`,{
+            headers:{
+                'Authorization':`Bearer ${user.token}`,
+                'Content-type':'application/json'
+            }
+        })
+		const data = await result.json()
+		if(result.status < 200 || result.status >= 300){
+			console.log(data.error)
+		}
+		else{
+			this.setData(data)
+		}
+		
+    }
 
 }
 
-const user = new UserStore();
-export default user
+const workspaceStore = new WorkspaceStore();
+export default workspaceStore

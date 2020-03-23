@@ -1,9 +1,13 @@
 const mongoose = require('mongoose')
-const Execution = require('../models/Execution')
-const Action = require('../models/Action')
+const Project = require('./Project')
+const PipelineExecution = require('./PipelineExecution')
+const ActionExecution = require('./ActionExecution')
+const Action = require('./Action')
 const docker = require('../docker/Docker')
-const { triggerModes, executionStatus, triggerTimes} = require('../constants')
-const nodemailer = require('nodemailer')
+const transporter = require('../transporter')
+const { triggerModes, executionStatus, emailConditions} = require('../constants')
+const fetch = require('node-fetch')
+
 
 const pipelineSchema = mongoose.Schema({
     project_id:{
@@ -21,90 +25,215 @@ const pipelineSchema = mongoose.Schema({
         require: true
     },
     trigger_mode:{
-        type:String,
+        type: String,
         enum: Object.values(triggerModes),
         require: true
     },
+    hook_id: Number,
     branch: {
         type: String,
         default: 'master'
     },
-    create_date: Date,
-    emailing: {
-        type: Boolean,
-        default: false
+    create_date:{
+        type: Date,
+        default: Date.now()
     },
-    run_in_parallel: {
-        type: Boolean,
-        default: false
+    emailing: {
+        type: String,
+        enum: Object.values(emailConditions),
+        default: emailConditions.NEVER
     },
     push_image:{
         type: Boolean,
         default: false
+    },
+    docker_user:String,
+    docker_password:String,
+    docker_repository:String,
+    docker_image_tag:String,
+    cron_container_id: String,
+    cron_date: String,
+    run_parallel: {
+        type:Boolean,
+        default:false
     }
 })
 
-const Pipeline = mongoose.model('Pipeline', pipelineSchema)
+pipelineSchema.methods.delete = async function(project, user) {
 
-pipelineSchema.methods.run = async function(){
+    const pipeline = this
 
-    const execution_number_id = await Execution.count({}) 
+    const actions = await Action.find({ pipeline_id: pipeline._id })
+    const pipeline_executions = await PipelineExecution.find({ pipeline_id: pipeline._id })
 
-    const action = Action.findOne({pipeline_id: this._id, prev_action_id: null})
 
-    if(!action) 
-        throw new Error("no actions to execute")
+    actions.forEach(async(action) => await action.delete())
+    pipeline_executions.forEach(async(pipeline_execution) => await pipeline_execution.delete())
 
-    action.execute(triggerMode, comment, req.user.email, revision)
+    if(pipeline.cron_container_id){
+        const res = await docker.getContainer(pipeline.cron_container_id).remove()
+        console.log(res)
+    }
+
+    const integration = await Integration.findOne({user_id: user._id, type: integrationTypes.GITHUB})
+
+
+    fetch(`https://api.github.com/repos/${project.repository}/hooks`,{
+        method:'DELETE',
+        headers:{
+            "Content-type": "application/json",
+            "Authorization": "token " + integration.token
+        }
+    })
+    .then(res => console.log(res.status))
+
+   const result = await Pipeline.deleteOne({_id:pipeline._id})
+   return result
 
 }
 
-const build_image = async (dir_name,repo) => {
 
-    const out = fs.createWriteStream('../../output.tar')
-    const stream = await container.getArchive({id: container.id, path: dir_name})
-    stream.pipe(out) 
+pipelineSchema.methods.run = async function({ triggerMode, comment, revision, executor, email_recipients, project }){
 
-    stream.on('end', async () => {
-        const re = fs.createReadStream('../../output.tar')
-        const resp = await docker.buildImage(
-            re, 
+    const { 
+        branch, 
+        creator, 
+        project_id, 
+        _id,
+        name, 
+        emailing, 
+        push_image, 
+        run_parallel ,
+        docker_user,
+        docker_password,
+        docker_repository,
+        docker_image_tag,
+        path
+
+    } = this
+
+    const {repository} = project
+
+    const pipeline_execution = await PipelineExecution.create({ 
+        pipeline_id: _id, 
+        triggerMode, 
+        comment, 
+        revision, 
+        executor, 
+        status:executionStatus.INPROGRESS 
+    })
+
+    const ind = await PipelineExecution.find({pipeline_id:_id}).where('date').lte(pipeline_execution.date).countDocuments()
+    console.log(ind)
+
+    if(run_parallel)
+    {
+        const actions = await Action.find({pipeline_id: pipeline._id})
+
+        const action_executions = actions.map(action => action.execute({ repository:repository.split("/")[1], branch, creator, revision, pipeline_execution, ind }))
+        
+        const statuses = await Promise.all(action_executions)
+
+        statuses.forEach(status => 
             {
-                t: `${repo}:latest`, 
-                dockerfile: `./${dir_name}/Dockerfile`, 
-                
-            }
-        )
-        resp.on('data', async (data) => {
-           
-            if(successful_build(data)){
-
-                const img = docker.getImage(`${repo}:latest`)
-                const r = await img.push({'X-Registry-Auth':base64auth})
-
-                r.on('data',data => console.log(data.toString()))
-                r.on('error',(error) => console.log(error))
-                r.on('end',() => console.log('end1'))
-
+            if(status !== executionStatus.SUCCESSFUL)
+            {
+                pipeline_execution.status = executionStatus.FAILED
             }
         })
-        resp.on('error',(error) => console.log(error))
-        resp.on('end',() => console.log('end2'))
+    }
+    else
+    {
+        var prev_action = null
+        let action = await Action.findOne({ pipeline_id: _id, prev_action_id: null })
+    
+        if(!action) 
+            throw new Error("no actions to execute")
+
+        while(action)
+        {
+            await action.execute({ repository:repository.split("/")[1], branch, creator, revision, pipeline_execution, ind })
+            prev_action = action
+            action = await Action.findOne({ pipeline_id: _id, prev_action_id: action._id })
+        }
+    }
+
+    if(pipeline_execution.status == executionStatus.SUCCESSFUL && push_image)
+    {
+        prev_action.build_and_push({
+            dir_name:repository.split("/")[1], 
+            path, docker_password, 
+            docker_user, 
+            docker_repository, 
+            docker_image_tag
+        })
+    }
+    
+
+    if(emailing == emailConditions.ON_EVERY_EXECUTION || 
+        (emailing == emailConditions.ON_SUCCESS && pipeline_execution.status == executionStatus.SUCCESSFUL) ||
+        (emailing == emailConditions.ON_FAILURE && pipeline_execution.status == executionStatus.FAILED)
+    ){
+        let info = await transporter.sendMail({
+            from: '"Ora.CI" <dimitar.damyanov0305@gmail.com>',
+            to: email_recipients.join(','),
+            subject: `Execution #${ind} for pipeline ${name}`, 
+            text: `status: ${pipeline_execution.status}`,
+            html: `<a href="http://localhost:3000/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
+        })
+        console.log(info)
+    }
+}
+
+
+pipelineSchema.statics.getActionsForPipeline = async (pipeline_id) => 
+{
+    const actions = await Action.find({ pipeline_id })
+    
+    const ordered = []
+
+    let next = actions.find(action => action.prev_action_id == null)
+
+    while(next)
+    {
+
+        ordered.push(next)
+        next = actions.find(action => JSON.stringify(action.prev_action_id) == JSON.stringify(next._id))
+        console.log(next)
+    }
+
+    return ordered
+}
+
+pipelineSchema.statics.getExecutions = async function(pipeline_id){
+
+    const pipeline_executions = await PipelineExecution.find({ pipeline_id })
+
+    const actions = await Pipeline.getActionsForPipeline(pipeline_id)
+
+    let executions = pipeline_executions.map(async (pipeline_execution) => 
+    {
+        const ind = await PipelineExecution.find({pipeline_id}).where('date').lte(pipeline_execution.date).countDocuments()   
+
+
+        let action_executions = actions.map(async(action) => 
+        {
+            let action_execution = await ActionExecution.findOne({execution_id: pipeline_execution._id, action_id:action._id})
+            const log = await action.getLog(ind)
+            console.log(action_execution, log)
+
+            if(action_execution) 
+                return { ...action_execution.toObject(), log }
+            
+        })
+
+        action_executions = await Promise.all(action_executions)
+        return { pipeline_execution, action_executions}
     })
+
+    executions = await Promise.all(executions)
+    return executions
 }
 
-
-const successful_build = (data) => {
-    const obj = JSON.parse(data.toString())
-    const match = obj.stream && obj.stream.match(/Successfully built (.*)\n/) || null
-    return match
-}
-
-const base64auth = Buffer.from(JSON.stringify({ 
-    username:'dimitardocker',
-    password:'dockerAccount',
-    email:'collieryart@gmail.com',
-    serveraddress:'https://index.docker.io/v1/'
-})).toString('base64')
-
+const Pipeline = mongoose.model('Pipeline', pipelineSchema)
 module.exports = Pipeline

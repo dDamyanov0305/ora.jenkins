@@ -1,31 +1,41 @@
 const mongoose = require('mongoose')
-const Execution = require('../models/Execution')
+const ActionExecution = require('./ActionExecution')
+const Integration = require('./Integration')
 const docker = require('../docker/Docker')
-const { triggerModes, executionStatus, triggerTimes} = require('../constants')
-const nodemailer = require('nodemailer')
+const { triggerModes, executionStatus, triggerTimes, integrationTypes} = require('../constants')
+const Stream = require('stream')
+const { exec: node_exec } = require('child_process');
 
 
 const actionSchema = mongoose.Schema({
     pipeline_id:{
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'Pipeline',
-        require: true
+        required: true
     },
     name:{
         type: String,
-        require: true
+        required: true
     },
     trigger_time:{
         type: String,
         enum: Object.values(triggerTimes),
-        require: true
     },
-    execute_commands: [String],
+    execute_commands: {
+        type: [String],
+        required:true
+    },
     setup_commands: [String],
     variables:[
         {
-            key: String,    
-            value: String
+            key: {
+                type: String,
+                required:true
+            },    
+            value: {
+                type: String,
+                required:true
+            },
         }
     ],
     prev_action_id:{
@@ -33,190 +43,219 @@ const actionSchema = mongoose.Schema({
         ref: 'Action',
         default: null
     },
-    docker_container_id: {
+    path:{
         type: String,
-        default: null
+        default: 'Dockerfile'
     },
+    docker_container_id: String,
     docker_image_name: String,
     docker_image_tag: String,
-    task_linkage:{
-        type: Boolean,
-        default: null
-    },
-    ora_task_id: String,
-    ora_project_id: String,
-    ora_list_id_on_success: String,
-    ora_list_id_on_failure: String,
-
+    task_linkage:Boolean,
+    ora_task_id: Number,
+    ora_project_id: Number,
+    ora_list_id_on_success: Number,
+    ora_list_id_on_failure: Number,
+    shell_script:Boolean
 })
 
-actionSchema.methods.build = async function(triggerMode, comment, executor, revision, execution_id){
+actionSchema.methods.delete = async function(){
 
-    const number = await Execution.count({action_id:this._id}) 
+    const action = this
+    console.log(action)
 
-    const execution = new Execution({
+    if(action.docker_container_id){
+        const container = docker.getContainer(action.docker_container_id)
+        const info = await container.inspect()
+        if(info.State.Running)
+            await container.stop()
+            
+        const res = await container.remove()
+        
+        console.log(res)
+    }
+
+   const result = await Action.deleteOne({_id:action._id})
+   return result
+
+}
+
+
+actionSchema.methods.execute = async function({ repository, branch, creator, revision, pipeline_execution, ind }){
+
+    const action_execution = await ActionExecution.create({
         action_id: this._id,
+        execution_id: pipeline_execution._id,
         status: executionStatus.ENQUED,
         date: Date.now(),
-        executor,
-        trigger: triggerMode,
-        comment,
-        revision,
-        number
     })
+
+    if(pipeline_execution.status !== executionStatus.SUCCESSFUL && 
+        pipeline_execution.status !== executionStatus.INPROGRESS)
+    {
+        action_execution.status = executionStatus.NOT_EXECUTED
+        action_execution.save()
+        return
+    }
 
     const container = docker.getContainer(this.docker_container_id)
     const info = await container.inspect()
     if(!info.State.Running) await container.start()
        
-    const pipeline = await Pipeline.findOne({_id: this.pipeline_id})
-    const project = await Project.findOne({_id: pipeline.project_id})
+    let executable = [`cd ${repository} && git checkout ${branch} && git pull`]
 
-    const pre_execute = [
-        `cd ${project.repository.split('/')[1]} && git checkout ${pipeline.branch}`,
-        triggerMode === triggerModes.MANUAL ? `git checkout ${revision}` : 'git pull'
-    ]
+    if(revision)
+        executable.push(`git checkout ${revision}`)
 
-    const executable = initial ? [...this.setup_commands, ...pre_execute, ...this.execute_commands] : [...pre_execute, ...this.execute_commands]
+    if(this.shell_script)
+    {
+        executable.push('/bin/execute_script.sh')
+    }
+    else
+    {
+        executable = executable.concat(this.execute_commands)
+    }
+       
+
+    const exec = await container.exec({
+        AttachStdin: false,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: false,
+        Cmd: ['/bin/bash', '-c', `touch /var/log/ora.ci/log_${ind}.log && (${executable.join(" && ")}) > /var/log/ora.ci/log_${ind}.log`]
+    })
+
+      
+    action_execution.status = executionStatus.INPROGRESS
+    action_execution.save()
+    
+    const stream = await exec.start()
+    const outputStream = new Stream.Writable()
+    const errorStream = new Stream.Writable()
+    
+    docker.modem.demuxStream(stream, outputStream, errorStream)
+    
+    return new Promise((resolve, reject) => 
+    {
+        outputStream._write = (chunk, encoding, next) => 
+        {
+            console.log(chunk.toString())
+            console.log('data')
+            next()
+        }
+    
+        errorStream._write = (chunk, encoding, next) => 
+        {
+            action_execution.status = executionStatus.FAILED
+            action_execution.save()
+            console.log(chunk.toString())
+            console.log('ERROR')
+            next()
+        }
+
+        stream.on('end', async () => 
+        {
+            console.log('END')
+            
+            if(action_execution.status === executionStatus.INPROGRESS){
+                action_execution.status = executionStatus.SUCCESSFUL
+                action_execution.save()
+            }
+
+            pipeline_execution.status = action_execution.status
+            await pipeline_execution.save()
+    
+            const integration = await Integration.findOne({user_id: creator, type: integrationTypes.ORA})
+    
+            if(integration && this.task_linkage)
+            {    
+                const taskMovement = await fetch(`https://api.ora.pm/projects/${this.ora_project_id}/tasks/${this.ora_task_id}/move`,
+                {
+                    method:'PUT',
+                    headers:
+                    {
+                        "Authorization": "Bearer " + integration.token, 
+                        "Content-Type":"application/json"
+                    },
+                    body:JSON.stringify(
+                    {
+                        list_id: pipeline_execution.status !== executionStatus.FAILED ? 
+                        this.ora_list_id_on_success :
+                        this.ora_list_id_on_failure
+                    })
+                })
+    
+                console.log(taskMovement.status)
+            }
+
+            resolve(action_execution.status)   
+        })
+        
+    });
+
+}
+
+actionSchema.methods.build_and_push = async function({dir_name, docker_username, docker_password, docker_repository, docker_image_tag, path}){
+
+    const { docker_container_id: id } = this
+    const t = `${docker_repository}:${docker_image_tag}`
+    const dockerfile = `./${dir_name}/${path}`
+
+    let buffs = []
+    const stream = await container.getArchive({ id, path })
+
+    stream.on('data', (data) => { buffs.push(data) })
+
+    stream.on('end', async () => {
+        const buff = Buffer.concat(buffs)
+        const buildStream = await docker.buildImage(buff, { t, dockerfile })
+
+        buildStream.on('data', async (data) => console.log( data.toString() ) )
+        buildStream.on('error',(error) => console.log(error))
+        buildStream.on('end',() => 
+        {
+            node_exec(`docker login -u ${docker_username} -p ${docker_password} && docker push ${image.name}`,(error, stdout, stderr) => 
+            {
+                        
+                if(error){
+                    console.error(`exec error: ${error}`);
+                    return
+                }
+
+                console.log(`stdout: ${stdout}`);
+                console.error(`stderr: ${stderr}`);
+
+            })
+        })
+    })
+}
+
+actionSchema.methods.getLog = async function(ind)
+{
+    const container = docker.getContainer(this.docker_container_id)
+    const info = await container.inspect()
+
+    if(!info.State.Running) await container.start()
 
     const exec = await container.exec({
         AttachStdin: false,
         AttachStdout: true,
         AttachStderr: true,
         Tty: true,
-        Cmd: ['/bin/bash', '-c', `(${executable.join(' && ')}) > /var/log/ora.jenkins/log${number}.log`]
+        Cmd: ['/bin/bash', '-c', `cat /var/log/ora.ci/log_${ind}.log`]
     })
 
-    const nextAction = await Action.findOne({ prev_action_id: this._id })
+    const stream = await exec.start({Tty:true})
+
+    return new Promise((resolve, reject) => 
+    {
+        let data = "";
         
-    if(nextAction && pipeline.run_in_parallel)
-        nextAction.build(triggerMode, comment, executor, revision)
-    
-    const stream = await exec.start({Tty: true})
-    
-    execution.status = executionStatus.INPROGRESS
-
-    const outputStream = new Stream.Writable()
-    const errorStream = new Stream.Writable()
-
-    errorStream._write = (chunk, encoding, next) => {
-        execution.status = executionStatus.FAILED
-    } 
-
-    docker.modem.demuxStream(stream, outputStream, errorStream)
-
-    stream.on('end', async () => {
-
-        if(execution.status === executionStatus.INPROGRESS){
-            execution.status = executionStatus.SUCCESSFUL
-        }
-
-        const integration = await Integration.findOne({user_id: pipeline.creator, type: integrationTypes.ORA})
-
-        if(integration && this.task_linkage){
-            await fetch(`https://api.ora.pm/projects/${this.ora_project_id}/tasks/${this.ora_task_id}/move`,{
-                method:'POST',
-                headers:{"Authorization": "Bearer " + integration.token, "Content-Type":"application/json"},
-                body:JSON.stringify({
-                    list_id: execution.status !== executionStatus.FAILED ? this.ora_list_id_on_success:this.ora_list_id_on_failure
-                })
-            })
-        }
-
-        if((pipeline.emailing === triggerTimes.ON_FAILURE && execution.status === executionStatus.FAILED) ||
-            (pipeline.emailing === triggerTimes.ON_SUCCESS && execution.status === executionStatus.SUCCESSFUL) || 
-            (pipeline.emailing === triggerTimes.ON_EVERY_EXECUTION)
-        ){
-            emailAssignees(this.ora_project_id, this.ora_task_id, integration.token)
-        }
-
-        execution.save()
-
-        if(execution.status === executionStatus.SUCCESSFUL && nextAction && !pipeline.run_in_parallel)
-            nextAction.build(triggerMode, comment, executor, revision)
-
-        if(!nextAction){
-            this.build_image()
-        }
-
-    })
-}
-
-const emailAssignees = async (project_id ,task_id, token) => {
-    const result1 = await fetch(`https://api.ora.pm/projects/${project_id}/tasks/${task_id}/members`,{
-        headers:{"Authorization": "Bearer " + token, "Content-Type":"application/json"}
-    })
-
-    const result2 = await fetch(`https://api.ora.pm/projects/${project_id}members`,{
-        headers:{"Authorization": "Bearer " + token, "Content-Type":"application/json"}
-    })
-
-    if(result1.status > 200 && result1.status <= 300 && result2.status > 200 && result2.status){
-        const task_members_data = await result1.json()
-        const project_members_data = await result2.json()
-        const user_ids = task_members_data.data.map(o => o.user_id)
-        const emails = project_members_data.data.filter(member => user_ids.includes(member.user_id)).map(member => member.email)
-
-
-        let transporter = nodemailer.createTransport({
-            host: "smtp.ethereal.email",
-            port: 587,
-            secure: false,
-            auth: {
-              user: 'ora.jenkins@gmail.com',
-              pass: 'ora.jenkinsPass1111' 
-            }
-          });
-        
-   
-          let info = await transporter.sendMail({
-            from: '"ora.jenkins" <ora.jenkins@gmail.com>',
-            to: emails.join(','),
-            subject: `Execution #${number} for pipeline ${pipeline.name}`, 
-            text: `the execution was ${execution.status}`,
-            html: `<a href="http://localhost:3000/execution/${execution.id}">for detailed information follow this link</a>`
-          });
-
-    }
-
-}
-
-actionSchema.methods.build_image = async function(dir_name){
-
-    const out = fs.createWriteStream('../../output.tar')
-    const stream = await container.getArchive({id: container.id, path: dir_name})
-    stream.pipe(out) 
-
-    stream.on('end', async () => {
-        const re = fs.createReadStream('../../output.tar')
-        const resp = await docker.buildImage(
-            re, 
-            {
-                t: 'dimitardocker/ora.jenkins:middle', 
-                dockerfile: `./${dir_name}/Dockerfile`, 
-                
-            }
-        )
-        resp.on('data', async (data) => {
-           
-            if(successful_build(data)){
-
-                const img = docker.getImage('dimitardocker/ora.jenkins:middle')
-                const r = await img.push({'X-Registry-Auth':base64auth})
-
-                r.on('data',data => console.log(data.toString()))
-                r.on('error',(error) => console.log(error))
-                r.on('end',() => console.log('end1'))
-
-            }
-        })
-        resp.on('error',(error) => console.log(error))
-        resp.on('end',() => console.log('end2'))
-    })
-
+        stream.on("data", chunk => data += chunk);
+        stream.on("end", () => resolve(data));
+        stream.on("error", error => reject(error));
+    });
 
 }
 
 const Action = mongoose.model('Action', actionSchema)
-
 module.exports = Action
