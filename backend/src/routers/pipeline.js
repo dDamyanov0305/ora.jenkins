@@ -28,7 +28,6 @@ router.post('/pipelines/all', [auth, checkPermission], async(req, res) => {
 })
 
 
-
 router.post('/pipelines/get', [auth, checkPermission], async(req, res) => {
 
     const { pipeline_id } = req.body
@@ -121,16 +120,17 @@ router.post('/pipelines/run', [auth, checkPermission], async(req, res) => {
     try{
         const pipeline = await Pipeline.findById(pipeline_id)
 
+        if(!pipeline)
+            throw new Error('couldn\'t find pipeline')
+
         const project = await Project.findById(pipeline.project_id)
 
         const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id).email))
 
-        if(!pipeline){
-            res.status(404).send()
-        }else{
-            pipeline.run({triggerMode, comment, executor:req.user.email, revision, project, email_recipients})
-            res.status(200).send()
-        }
+       
+        pipeline.run({triggerMode, comment, executor:req.user.email, revision, project, email_recipients})
+        res.status(200).send()
+        
 
     }
     catch(error){
@@ -183,7 +183,8 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
         if(!pipeline || !project)
             throw new Error('Couldn\'t create pipeline.')
 
-        if(trigger_mode === triggerModes.PUSH){
+        if(trigger_mode === triggerModes.PUSH)
+        {
 
             const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
      
@@ -212,7 +213,7 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
                 return res.sendStatus(result.status)
             }
             else{
-                const {id: hook_id} = await result.json()
+                const { id: hook_id } = await result.json()
                 pipeline.hook_id = hook_id
                 pipeline.save()
                 res.status(201).json({pipeline})

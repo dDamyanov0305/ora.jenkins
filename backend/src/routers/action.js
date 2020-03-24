@@ -8,7 +8,6 @@ const checkPermission = require('../middleware/checkPermission')
 const docker = require('../docker/Docker')
 const archiver = require('archiver')
 const streamBuffers = require('stream-buffers');
-const transporter = require('../transporter')
 const { exec: node_exec } = require('child_process');
 
 router.post('/actions/all', [auth, checkPermission], async(req, res) => {
@@ -81,7 +80,6 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
     } = req.body
 
     
-
     console.log(req.body)
 
     try{
@@ -100,53 +98,59 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
         if(!container)
             throw new Error("Unable to create container for action.")
         
+        await container.start()
 
         const action = new Action({ 
             name, 
-            execute_commands:JSON.parse(execute_commands), 
+            execute_commands: JSON.parse(execute_commands), 
             pipeline_id, 
             prev_action_id: prev_action_id || null, 
-            variables:JSON.parse(variables), 
+            variables: JSON.parse(variables), 
             docker_image_name, 
             docker_image_tag, 
             docker_container_id: container.id,
-            task_linkage:JSON.parse(task_linkage),
-            shell_script:JSON.parse(shell_script),
-            ora_task_id:JSON.parse(ora_task_id),
-            ora_project_id:JSON.parse(ora_project_id),
-            ora_list_id_on_success:JSON.parse(ora_list_id_on_success),
-            ora_list_id_on_failure:JSON.parse(ora_list_id_on_failure) 
+            task_linkage: JSON.parse(task_linkage),
+            shell_script: JSON.parse(shell_script),
+            ora_task_id: JSON.parse(ora_task_id),
+            ora_project_id: JSON.parse(ora_project_id),
+            ora_list_id_on_success: JSON.parse(ora_list_id_on_success),
+            ora_list_id_on_failure: JSON.parse(ora_list_id_on_failure) 
         })
 
-        if(!action){
+        if(!action)
+        {
             throw new Error("Unable to create action.")
         }
-        else{
+
+        else
+        {
             action.setup_commands = [
                 `mkdir /var/log/ora.ci`,
                 `apt-get update && apt-get upgrade -y && apt-get install -y git && git clone https://github.com/${project.repository}.git`
             ]
 
-            if(next){
-                const next_action = await Action.findById(next)
+            if(next)
+            {
+                var next_action = await Action.findById(next)
                 next_action.prev_action_id = action._id
-                next_action.save()
             }
 
-             if(JSON.parse(shell_script)){
+            if(JSON.parse(shell_script))
+            {
                 let outputStreamBuffer = new streamBuffers.WritableStreamBuffer({
                     initialSize: (1000 * 1024), 
                     incrementAmount: (1000 * 1024) 
                 });
-                
+
                 let archive = archiver('zip', {
                     zlib: { level: 9 }
                 });
+
                 archive.pipe(outputStreamBuffer);
-                
+
                 archive.append(req.files.execute_script.data, { name: "execute_script.sh"});
                 archive.finalize();
-                
+
                 outputStreamBuffer.end();
 
                 outputStreamBuffer.on('finish', () => {
@@ -154,9 +158,8 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
                 })
 
                 action.setup_commands.push('chmod +x /bin/execute_script.sh')
-             }
+            }
 
-            await container.start()
 
             const exec = await container.exec({
                 AttachStdin: false,
@@ -167,11 +170,14 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
             })
 
             const stream = await exec.start({Tty:true})
+
             stream.on('data', data => console.log(data.toString()))
     
+            action.save()
+            next_action.save()
+
             res.status(201).json({action})
         }
-        action.save()
 
     }
     catch(error){

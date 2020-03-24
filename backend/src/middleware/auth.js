@@ -4,7 +4,6 @@ const User = require('../models/User')
 
 const auth = async(req, res, next) => {
 
-    console.log('vliza')
 
     const tokens = req.header('Authorization')
     let token = null
@@ -15,8 +14,6 @@ const auth = async(req, res, next) => {
             res.status(403).json({error:'No authentication token present in headers.'})
         }
 
-
-    
         const data = jwt.verify(token, process.env.JWT_KEY)
         const user = await User.findOne({ _id: data._id, 'tokens.token': token })
 
@@ -25,6 +22,7 @@ const auth = async(req, res, next) => {
         
         req.user = user
         req.token = token
+        
         next()
     } catch (error) {
         res.status(401).json({error: 'Not authorized to access this resource.'})

@@ -8,7 +8,8 @@ import pipelineStore from './PipelineStore';
 
 class PipelineExecutionStore {
 
-	@observable executions = [];
+    @observable executions = [];
+    @observable execution;
 
 
 	@action setData({executions}) {
@@ -27,6 +28,11 @@ class PipelineExecutionStore {
         })
         .then(res => res.json())
         .then(data => this.setData(data))
+    }
+
+    @action selectExecution(execution){
+        this.execution = execution
+        routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
     }
 
 

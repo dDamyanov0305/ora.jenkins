@@ -10,8 +10,8 @@ import ProjectForm from './ProjectForm/ProjectForm'
 import ActionForm from './ActionForm/ActionForm'
 import PipelinesPanel from './PipelinesPanel/PipelinesPanel';
 import ProjectsPanel from './ProjectsPanel/ProjectsPanel'
-import ActionsPanel from './ActionsPanel/ActionsPanel';
-import ExecutionsPanel from './ExecutionsPanel/ExecutionsPanel';
+import PipelinePage from './PipelinePage/PipelinePage';
+import ExecutionPage from './ExecutionPage/ExecutionPage';
 import PipelineForm from './PipelineForm/PipelineForm';
 import providerStore from '../Stores/ProviderStore';
 import actionFormStore from '../Stores/ActionFormStore';
@@ -129,8 +129,8 @@ const App = (props) => {
         <Route path="/project/create" component={ProjectForm}/>
         <Route path="/pipeline/create" component={PipelineForm}/>
         <Route path="/actions/create" component={ActionForm}/>
-        <Route path="/project/:project_name/pipelines/:pipeline_name" component={ActionsPanel}/>
-        <Route path="/project/:project_name/pipelines/:pipeline_name/executions" component={ExecutionsPanel}/>
+        <Route path="/project/:project_name/pipelines/:pipeline_name/executions/:execution_id" component={ExecutionPage}/>
+        <Route path="/project/:project_name/pipelines/:pipeline_name" component={PipelinePage}/>
         <Route path="/project/:project_name/pipelines" component={PipelinesPanel}/>
         <Route path="/github/oauth/callback" component={GithubAuthCallback}/>
         <Route path="/ora/oauth/callback" component={OraAuthCallback}/>

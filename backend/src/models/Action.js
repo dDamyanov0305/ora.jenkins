@@ -68,7 +68,7 @@ actionSchema.methods.delete = async function(){
         const info = await container.inspect()
         if(info.State.Running)
             await container.stop()
-            
+
         const res = await container.remove()
         
         console.log(res)
@@ -136,12 +136,7 @@ actionSchema.methods.execute = async function({ repository, branch, creator, rev
     
     return new Promise((resolve, reject) => 
     {
-        outputStream._write = (chunk, encoding, next) => 
-        {
-            console.log(chunk.toString())
-            console.log('data')
-            next()
-        }
+        outputStream._write = (chunk, encoding, next) => next()
     
         errorStream._write = (chunk, encoding, next) => 
         {
@@ -176,8 +171,7 @@ actionSchema.methods.execute = async function({ repository, branch, creator, rev
                         "Authorization": "Bearer " + integration.token, 
                         "Content-Type":"application/json"
                     },
-                    body:JSON.stringify(
-                    {
+                    body:JSON.stringify({
                         list_id: pipeline_execution.status !== executionStatus.FAILED ? 
                         this.ora_list_id_on_success :
                         this.ora_list_id_on_failure
@@ -205,7 +199,8 @@ actionSchema.methods.build_and_push = async function({dir_name, docker_username,
 
     stream.on('data', (data) => { buffs.push(data) })
 
-    stream.on('end', async () => {
+    stream.on('end', async () => 
+    {
         const buff = Buffer.concat(buffs)
         const buildStream = await docker.buildImage(buff, { t, dockerfile })
 

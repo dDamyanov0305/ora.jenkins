@@ -114,7 +114,7 @@ pipelineSchema.methods.run = async function({ triggerMode, comment, revision, ex
 
     const {repository} = project
 
-    const pipeline_execution = await PipelineExecution.create({ 
+    const pipeline_execution = new PipelineExecution({ 
         pipeline_id: _id, 
         triggerMode, 
         comment, 
@@ -135,7 +135,7 @@ pipelineSchema.methods.run = async function({ triggerMode, comment, revision, ex
         const statuses = await Promise.all(action_executions)
 
         statuses.forEach(status => 
-            {
+        {
             if(status !== executionStatus.SUCCESSFUL)
             {
                 pipeline_execution.status = executionStatus.FAILED
@@ -196,10 +196,9 @@ pipelineSchema.statics.getActionsForPipeline = async (pipeline_id) =>
 
     while(next)
     {
-
+        console.log(next)
         ordered.push(next)
         next = actions.find(action => JSON.stringify(action.prev_action_id) == JSON.stringify(next._id))
-        console.log(next)
     }
 
     return ordered
@@ -223,7 +222,7 @@ pipelineSchema.statics.getExecutions = async function(pipeline_id){
             console.log(action_execution, log)
 
             if(action_execution) 
-                return { ...action_execution.toObject(), log }
+                return { ...action_execution.toObject(), action, log }
             
         })
 

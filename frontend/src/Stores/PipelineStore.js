@@ -5,6 +5,7 @@ import actionStore from './ActionStore';
 import routeStore from './RouteStore'
 import projectStore from './ProjectStore'
 import runStore from './RunStore';
+import pipelineExecutionStore from './PipelineExecutionStore';
 
 class PipelineStore {
 
@@ -20,6 +21,7 @@ class PipelineStore {
 	@action selectPipeline(pipeline){
         this.currentPipeline = pipeline
         actionStore.getActions(this.currentPipeline._id)
+        pipelineExecutionStore.getExecutions()
         routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${this.currentPipeline.name}`)
     }
     
