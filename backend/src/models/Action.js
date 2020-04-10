@@ -79,7 +79,6 @@ actionSchema.methods.delete = async function(){
 
 }
 
-
 actionSchema.methods.execute = async function({ repository, branch, creator, revision, pipeline_execution, ind }){
 
     const action_execution = await ActionExecution.create({

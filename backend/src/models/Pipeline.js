@@ -92,7 +92,6 @@ pipelineSchema.methods.delete = async function(project, user) {
 
 }
 
-
 pipelineSchema.methods.run = async function({ triggerMode, comment, revision, executor, email_recipients, project }){
 
     const { 
@@ -162,7 +161,8 @@ pipelineSchema.methods.run = async function({ triggerMode, comment, revision, ex
     {
         prev_action.build_and_push({
             dir_name:repository.split("/")[1], 
-            path, docker_password, 
+            path, 
+            docker_password, 
             docker_user, 
             docker_repository, 
             docker_image_tag
@@ -184,7 +184,6 @@ pipelineSchema.methods.run = async function({ triggerMode, comment, revision, ex
         console.log(info)
     }
 }
-
 
 pipelineSchema.statics.getActionsForPipeline = async (pipeline_id) => 
 {

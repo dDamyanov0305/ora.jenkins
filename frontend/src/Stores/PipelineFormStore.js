@@ -23,7 +23,6 @@ class PipelineFormStore {
     }
 
 	@observable data = this.default_data
-
     @observable branches = []
     @observable errorText = ''
     

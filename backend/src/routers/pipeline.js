@@ -54,13 +54,14 @@ router.post('/pipelines/:pipeline_id/webhook-trigger', async(req, res) => {
     try
     {
         const { pipeline_id } = req.params
-        const { head_commit, commits} = req.body
+        const { head_commit, commits, ref} = req.body
         const { id, message, author } = head_commit
         const committers = commits.map(commit => commit.committer.email)
+        const refs = ref.split('/')
 
         console.log(committers)
     
-        const pipeline = await Pipeline.findById(pipeline_id)
+        const pipeline = await Pipeline.find({_id:pipeline_id,branch:refs[refs.length-1]})
 
         const project = await Project.findById(pipeline.project_id)
 
@@ -115,7 +116,7 @@ router.post('/pipelines/:pipeline_id/cron-trigger', async(req, res) => {
 router.post('/pipelines/run', [auth, checkPermission], async(req, res) => {
 
     console.log(req.body)
-    const { pipeline_id, comment, revision, triggerMode } = req.body
+    const { pipeline_id, comment, revision } = req.body
 
     try{
         const pipeline = await Pipeline.findById(pipeline_id)
@@ -125,10 +126,10 @@ router.post('/pipelines/run', [auth, checkPermission], async(req, res) => {
 
         const project = await Project.findById(pipeline.project_id)
 
-        const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id).email))
+        const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id)).email)
 
        
-        pipeline.run({triggerMode, comment, executor:req.user.email, revision, project, email_recipients})
+        pipeline.run({triggerMode:triggerModes.MANUAL, comment, executor:req.user.email, revision, project, email_recipients})
         res.status(200).send()
         
 

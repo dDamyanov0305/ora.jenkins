@@ -3,6 +3,7 @@ import user from '../Stores/UserStore'
 import routeStore from './RouteStore'
 import projectStore from './ProjectStore';
 import workspaceStore from './WorkspaceStore';
+import storage from '../Services/perfectLocalStorage'
 
 
 class ProviderStore {
@@ -32,7 +33,9 @@ class ProviderStore {
         this.step = 2
         const isIntegrated = user.integrations.find(integration => integration.type === this.currentProvider.name)
 
-        if(!isIntegrated){
+        if(!isIntegrated)
+        {
+            storage.set("return_uri",routeStore.pathname)
             window.open(this.currentProvider.integrationURL,'_blank','height=570,width=520')
         }
         else{

@@ -5,6 +5,8 @@ import routeStore from './RouteStore'
 import workspaceStore from './WorkspaceStore';
 import projectStore from './ProjectStore';
 import actionStore from './ActionStore';
+import storage from '../Services/perfectLocalStorage';
+
 
 
 class ActionFormStore {
@@ -12,8 +14,8 @@ class ActionFormStore {
     default_data = {
         name:'',
         shell_script:false,
-        execute_script:"",
-        filename:"",
+        execute_script:'',
+        filename:'',
         execute_commands:'',
         prev_action_id: null,
         next:null,
@@ -31,15 +33,54 @@ class ActionFormStore {
 
     @observable data = this.default_data
     @observable errorText = ''
+    @observable modalError = ''
     @observable projects = []
     @observable tasks = []
     @observable lists = []
+    @observable showModal = false
+    edited = false
 
-    submit = async (e) => {
+    @action applyTaskLinkage = (e) => {
+        e.preventDefault()
+        
+        if(!this.data.ora_project_id){ 
+            this.modalError = 1
+        }
+        else if(!this.data.ora_task_id){ 
+            this.modalError = 2
+        }
+        else if(!this.data.ora_list_id_on_success){ 
+            this.modalError = 3
+        }
+        else if(!this.data.ora_list_id_on_failure){ 
+            this.modalError = 4
+        }
+        else{
+            this.modalError = 0
+            this.showModal = false
+            this.edited = false
+        }
+    }
+
+    @action openModal = (e) => {
+        e.preventDefault()
+        this.showModal = true
+    }
+
+    @action dismissTaskLinkage = (e) => {
         e.preventDefault()
 
-        let execute_commands = this.data.execute_commands.split('\n')
+        this.showModal = false
+        this.data.task_linkage = false
+        this.data.ora_project_id = null
+        this.data.ora_task_id = null
+        this.data.ora_list_id_on_success = null
+        this.data.ora_list_id_on_failure = null
+    }
 
+    submit = async (e) => {
+
+        e.preventDefault()
         const data = new FormData()
 
         if(this.data.prev_action_id){
@@ -55,7 +96,7 @@ class ActionFormStore {
         data.append('shell_script',this.data.shell_script)
         data.append('name',this.data.name)
         data.append('variables',JSON.stringify(this.data.variables))
-        data.append('execute_commands',JSON.stringify(execute_commands))
+        data.append('execute_commands',JSON.stringify(this.data.execute_commands.split('\n')))
         data.append('docker_image_name',this.data.docker_image_name)
         data.append('docker_image_tag',this.data.docker_image_tag)
         data.append('pipeline_id',pipelineStore.currentPipeline._id)
@@ -67,7 +108,7 @@ class ActionFormStore {
         data.append('ora_list_id_on_failure',this.data.ora_list_id_on_failure)
 
 
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/actions/test`,{
+        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/actions/create`,{
             method:'POST',
             headers:{
                 'Authorization':`Bearer ${user.token}`,
@@ -93,7 +134,6 @@ class ActionFormStore {
     }
 
     @action handleFile = (e) => {
-        console.log(e.target.files[0])
         this.data[e.target.name] = e.target.files[0]
     }
 
@@ -114,27 +154,26 @@ class ActionFormStore {
     }
 
     @action checkTaskLinkage = (e) => {
+
         this.data[e.target.name] = e.target.checked
+
         if(e.target.checked)
         {
             const isIntegrated =  user.integrations.find(integration => integration.type === "ORA")
             
-            if(!isIntegrated)
-            {
+            if(!isIntegrated){
+                storage.set("return_uri",routeStore.pathname)
                 window.open(`https://ora.pm/authorize?client_id=${process.env.REACT_APP_ORA_OAUTH_CLIENT_ID}&redirect_uri=http://localhost:3000/ora/oauth/callback&response_type=code`,'_blank','height=570,width=520')
-            }
-            else
-            {
-                console.log('deba')
+            }else{
+                this.showModal = true
                 this.getProjects()
             }
         }
     }
 
-    @action getProjects = async() => 
-    {
-        const projectsRes = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/projects`,
-        {
+
+    @action getProjects = async() => {
+        const projectsRes = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/projects`,{
             headers:{
                 'Authorization':`Bearer ${user.token}`,
                 'Content-type':'application/json'
@@ -143,19 +182,16 @@ class ActionFormStore {
 
         const data = await projectsRes.json()
 
-        if(projectsRes.status < 200 || projectsRes.status >= 300)
-        {
+        if(projectsRes.status < 200 || projectsRes.status >= 300){
             this.errorText = data.error
         }
-        else
-        {
-            console.log(data.projects)
+        else{
             this.projects = data.projects
         }
     }
 
-    @action selectProject = async(project) => 
-    {
+    @action selectProject = async(project) => {
+
         this.data.ora_project_id = project.id
 
         const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/tasks_and_lists`,
@@ -172,12 +208,10 @@ class ActionFormStore {
         
         const data = await result.json()
 
-        if(result.status < 200 || result.status >= 300)
-        {
+        if(result.status < 200 || result.status >= 300){
             this.errorText = data.error
         }
-        else
-        {
+        else{
             this.tasks = data.tasks
             this.lists = data.lists
         }

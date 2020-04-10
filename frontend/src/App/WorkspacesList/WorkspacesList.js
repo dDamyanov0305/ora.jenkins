@@ -1,29 +1,21 @@
 import React from 'react';
 import workspaceStore from '../../Stores/WorkspaceStore';
 import { observer } from 'mobx-react';
+import routeStore from '../../Stores/RouteStore';
 
 
 const WorksapcesList = observer(() =>
-    <ul>
+    <div>
         {workspaceStore.workspaces.map(ws => 
-            <li 
+            <button 
                 key={ws.name}
                 onClick={()=>{workspaceStore.selectWorkspace(ws)}}
             >
                 {ws.name}
-            </li>)
+            </button>)
         }
-    </ul>
+        <button onClick={()=>routeStore.push("/workspace/create")}>new workspace</button>
+    </div>
 ) 
-
-
-const OraIntegration = () => {
-
-    function openLink() {      
-        window.open(`https://ora.pm/authorize?client_id=${process.env.REACT_APP_ORA_OAUTH_CLIENT_ID}&redirect_uri=${process.env.REACT_APP_SERVER_ADDRESS}/ora/oauth&response_type=code`,'_self')    
-    }
-
-    return <p onClick={openLink}>ora</p>
-}
 
 export default WorksapcesList

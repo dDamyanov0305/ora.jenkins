@@ -25,23 +25,6 @@ router.post('/actions/all', [auth, checkPermission], async(req, res) => {
 
 })
 
-router.post('/actions/all2', [auth, checkPermission], async(req, res) => {
-
-    const { pipeline_id } = req.body
-
-    try{
-        const actions = await Action.find({pipeline_id})
-        res.status(200).json({actions})
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
-
-})
-
-
-
 router.post('/actions/get', [auth, checkPermission], async(req, res) => {
 
     const { pipeline_id, action_id } = req.body
@@ -58,7 +41,6 @@ router.post('/actions/get', [auth, checkPermission], async(req, res) => {
     }
     
 })
-
 
 router.post('/actions/create', [auth, checkPermission], async(req, res) => {
 
@@ -79,7 +61,6 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
         ora_list_id_on_failure
     } = req.body
 
-    
     console.log(req.body)
 
     try{
@@ -117,49 +98,25 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
             ora_list_id_on_failure: JSON.parse(ora_list_id_on_failure) 
         })
 
-        if(!action)
-        {
+        if(!action){
             throw new Error("Unable to create action.")
         }
-
-        else
-        {
+        else{
             action.setup_commands = [
                 `mkdir /var/log/ora.ci`,
                 `apt-get update && apt-get upgrade -y && apt-get install -y git && git clone https://github.com/${project.repository}.git`
             ]
 
-            if(next)
-            {
+            if(next){
                 var next_action = await Action.findById(next)
                 next_action.prev_action_id = action._id
             }
 
             if(JSON.parse(shell_script))
             {
-                let outputStreamBuffer = new streamBuffers.WritableStreamBuffer({
-                    initialSize: (1000 * 1024), 
-                    incrementAmount: (1000 * 1024) 
-                });
-
-                let archive = archiver('zip', {
-                    zlib: { level: 9 }
-                });
-
-                archive.pipe(outputStreamBuffer);
-
-                archive.append(req.files.execute_script.data, { name: "execute_script.sh"});
-                archive.finalize();
-
-                outputStreamBuffer.end();
-
-                outputStreamBuffer.on('finish', () => {
-                    container.putArchive(outputStreamBuffer.getContents(),{path:'/bin'})
-                })
-
+                upload_script(container, req.files.execute_script.data)
                 action.setup_commands.push('chmod +x /bin/execute_script.sh')
             }
-
 
             const exec = await container.exec({
                 AttachStdin: false,
@@ -185,7 +142,6 @@ router.post('/actions/create', [auth, checkPermission], async(req, res) => {
         res.status(500).json({error:error.message})
     }
 })
-
 
 router.delete('/actions/all', [auth, checkPermission], async(req, res) => {
 
@@ -221,11 +177,11 @@ router.delete('/actions', [auth, checkPermission], async(req, res) => {
 })
 
 router.post('/actions/test', async(req, res) => {
+    //const container = docker.getContainer("575a03090aaade68632bb7ea98ff8df66e487d1c6e89f887410a1636f2f13e62")
+    build_image('dimitardocker/ora.jenkins:new3','dimitardocker','dockerAccount','https://github.com/dDamyanov0305/tp-project.git')
+})
 
-
-    console.log('iiiii')
-
-    const container = docker.getContainer("575a03090aaade68632bb7ea98ff8df66e487d1c6e89f887410a1636f2f13e62")
+const upload_script = (container, script) => {
 
     let outputStreamBuffer = new streamBuffers.WritableStreamBuffer({
         initialSize: (1000 * 1024), 
@@ -233,31 +189,21 @@ router.post('/actions/test', async(req, res) => {
     });
     
     outputStreamBuffer.on('finish', async() => {
-        console.log('pp')
-        console.log(outputStreamBuffer.getContents())
-        const stream = await container.putArchive(outputStreamBuffer.getContents(),{path:'/bin'})
-
-        stream.on('data', data => console.log(data.toString()))
+        await container.putArchive(outputStreamBuffer.getContents(),{path:'/bin'})
     })
    
     
-    let archive = archiver('zip', {
+    let archive = archiver('tar', {
         zlib: { level: 9 }
     });
+
     archive.pipe(outputStreamBuffer);
-    
-    archive.append(Buffer.from(req.files.execute_script.data), { name: "execute_script.sh"});
-    archive.finalize();
-    
-    outputStreamBuffer.end();
+    archive.append(script, { name: "execute_script.sh"});
+    archive.finalize().then(() => outputStreamBuffer.end());
 
+}
 
-
-})
-
-
-
-const build_image2 = async(t, username, password, remote) => {
+const build_image = async(t, username, password, remote) => {
 
     try{
         console.log("stage 0")
@@ -286,16 +232,19 @@ const build_image2 = async(t, username, password, remote) => {
                     Tty: true,
                     Image: image.name,
                 })
+                console.log(container.id)
 
                await container.start()
 
                console.log('stage 4')
 
+               //execute all commands
+
                const exec = await container.exec({
                     AttachStdin: false,
                     AttachStdout: true,
                     AttachStderr: true,
-                    Tty: false,
+                    Tty: true,
                     Cmd: ['/bin/bash', '-c', `ls`]
                 })
 

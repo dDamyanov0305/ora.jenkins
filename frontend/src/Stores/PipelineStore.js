@@ -4,13 +4,16 @@ import workspaceStore from './WorkspaceStore';
 import actionStore from './ActionStore';
 import routeStore from './RouteStore'
 import projectStore from './ProjectStore'
-import runStore from './RunStore';
+import runStore from './RunPipelineStore';
 import pipelineExecutionStore from './PipelineExecutionStore';
+import runPipelineStore from './RunPipelineStore';
 
 class PipelineStore {
 
 	@observable currentPipeline;
-	@observable pipelines = [];
+    @observable pipelines = [];
+    @observable commits = [];
+    @observable comment = '';
 
 
 	@action setData({pipelines}) {
@@ -43,8 +46,8 @@ class PipelineStore {
         routeStore.push('/pipelines/run')
     }
 
-    run = (pipeline) => {
-        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/run`,{
+    @action getCommits(pipeline){
+        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/github/commits`,{
             method:'POST',
             headers:{
                 'Authorization':`Bearer ${user.token}`,
@@ -52,16 +55,26 @@ class PipelineStore {
             },
             body:JSON.stringify({
                 workspace_id:workspaceStore.currentWorkspace._id, 
-                pipeline_id:pipeline._id,
-                comment:"execution",
-                triggerMode:"MANUAL"
+                project_id:projectStore.currentProject._id,
+                branch: pipeline.branch
             })
         })
+        .then(res => res.json())
+        .then(data => this.commits = data.commits)
+    }
+
+    
+
+
+    run = (pipeline) => {
+        
+        runPipelineStore.setPipeline(pipeline)
+        runPipelineStore.setPipeline(pipeline)
         
     }
 
     delete = async(pipeline) => {
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines`,{
+        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines`,{
             method:'DELETE',
             headers:{
                 'Authorization':`Bearer ${user.token}`,
