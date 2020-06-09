@@ -22,11 +22,9 @@ const ActionForm = observer(() =>
             link action to ora task
         </label>
         {actionFormStore.data.task_linkage && 
-            <span onClick={actionFormStore.openModal}>edit</span>
+        <span onClick={actionFormStore.openModal}>edit</span>
         }
-        
         <TaskLinkageModal/>
-
         <input class="btn" type="submit" value="Create"/>     
     </form>
 </div>
@@ -79,6 +77,8 @@ const computeClassName = (value) =>  `section ${actionFormStore.modalError === v
 const TaskLinkageModal = observer(() => 
     <Modal show={actionFormStore.showModal}>
         <div>
+
+        <div>
             <div className={computeClassName(1)}>
                 <h4>select project</h4>
                 {actionFormStore.projects.map(project => 
@@ -104,8 +104,9 @@ const TaskLinkageModal = observer(() =>
                 }
             </div>
         </div>
-        <div>
-            <button onClick={actionFormStore.closeModal}>close</button>
+        <div class="modal-actions">
+            <button class="close btn"onClick={actionFormStore.closeModal}>close</button>
+        </div>
         </div>
     </Modal>
 )
