@@ -1,0 +1,42 @@
+.action{
+    width: 12rem;
+    height: 2.5rem;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    border-radius: 3px;
+    border: 1px solid var(--fa-primary-color);
+    font-weight: 100;
+    font-family: monospace;
+    cursor: pointer;
+    text-overflow: ellipsis;
+}
+
+.action-link{
+    margin: 0.5rem 1rem;
+    color: var(--fa-primary-color);
+    cursor: pointer;
+}
+
+.action-container-column{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.action .fa-envelope-open-text,
+.action .fa-docker,
+.action .fa-vial,
+.action .fa-cogs{
+    color: var(--text-primary);
+    font-size: 1.2rem;
+}
+
+.actions-sequence{
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+}

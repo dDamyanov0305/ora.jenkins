@@ -1,0 +1,88 @@
+.project-form{
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(10, 10%);
+    height: 80vh;
+    overflow: hidden;
+}
+
+.project-form .select{
+    padding: 3rem;
+    background-color: white;
+    grid-column: 3 / 9;
+    border-radius: 5px;
+    overflow: auto;
+    width: 100%;
+}
+
+*::-webkit-scrollbar {
+    width: 0.25rem;
+  }
+  
+*::-webkit-scrollbar-track {
+    background: none;
+  }
+  
+*::-webkit-scrollbar-thumb {
+    background: #0CB800;
+  }
+
+
+.select-row .fa-gitlab{
+    color: rgb(255, 106, 0);
+  }
+
+  .select-row .fa-github{
+    color: black;
+  }
+
+  .select-row .fa-bitbucket{
+    color: blue;
+  }
+
+.project-form .select .options-container{
+    width: 44.5%;
+    height: fit-content;
+}
+
+.project-form .select-row.noHover{
+    border: 1px solid var(--fa-primary-color);
+}
+
+.project-form .select-row.noHover.shadow{
+    box-shadow: 0px 0px 5px var(--fa-primary-color);
+}
+
+.badge-full{
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.2rem 0.5rem;
+    height: 3rem;
+    color: var(--fa-primary-color);
+    background-color: #e7ffe6;
+}
+
+.repos{
+    margin: 1rem 0;
+    
+}
+
+.repo-row{
+    display: flex;
+    height: 3rem;
+    align-items: center;
+    padding: 0 0.5rem;
+    width: 100%;
+    border-bottom: 1px solid rgb(223, 223, 223);
+    color: var(--fa-primary-color);
+}
+
+.repo-row:last-child{
+    border: none;
+}
+
+.repo-row:hover{
+    background-color: #cfffcc;
+}

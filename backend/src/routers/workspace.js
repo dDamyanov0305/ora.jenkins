@@ -1,18 +1,17 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
+const check_permission = require('../middleware/check_permission')
 const Workspace = require('../models/Workspace')
-const checkPermission = require('../middleware/checkPermission')
+
 
 router.get('/workspaces/all', auth, async(req, res) => {
 
-
     try{
         const workspaces = await Workspace.find({ members: req.user._id })
+
         if(!workspaces) 
             res.status(404).send('authenticated user doesn\'t have any workspaces')
-
-           
         res.json({workspaces})
     }
     catch(error){
@@ -22,7 +21,7 @@ router.get('/workspaces/all', auth, async(req, res) => {
       
 })
 
-router.post('/workspaces/get', [auth, checkPermission], async(req, res) => {
+router.post('/workspaces/get', [auth, check_permission], async(req, res) => {
     res.status(200).json({workspace:req.workspace})
 })
 
@@ -40,35 +39,15 @@ router.post('/workspaces/create', auth, async (req, res) => {
     }
 })
 
-router.post('/workspaces/add_member/request', auth, async(req, res) => {
 
-    const { email } = req.body
-
-    try{
-       
-        //send email
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
-
-})
-
-router.post('/workspaces/:workspace_id/add-member/confirm', auth, (req, res) => {
-
-    //callback endpoint for email confirmation
-
-})
-
-router.delete('/workspaces', auth, async(req, res) => {
+router.delete('/workspaces', [auth, check_permission], async(req, res) => {
 
     const { workspace_id } = req.params
 
     try{
         const workspace = await Workspace.findById(workspace_id)
-        workspace.delete()
-        res.status(200).send()
+        let del = workspace.delete()
+        res.status(200).send(del)
     }
     catch(error){
         console.log(error)
@@ -76,7 +55,7 @@ router.delete('/workspaces', auth, async(req, res) => {
     }
 })
 
-router.delete('/workspaces/all', async(req, res) => {
+router.delete('/workspaces/all', [auth, check_permission], async(req, res) => {
 
     try{
         const workspaces = await Workspace.find({})

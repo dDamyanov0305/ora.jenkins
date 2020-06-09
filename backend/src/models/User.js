@@ -73,30 +73,40 @@ userSchema.statics.findByCredentials = async (email, password) => {
 
 userSchema.methods.delete = async function() {
 
+    
     const user = this
+
+    console.log('deleting user ', user.name)
 
     const workspaces = await Worksapce.find({ user_id: user._id })
     const integrations = await Integration.find({ user_id: user._id })
 
-    workspaces.forEach(async(workspace) => await workspace.delete())
+    let workspace_deletes = workspaces.map(async(workspace) => await workspace.delete())
 
-    integrations.forEach(async(integration) => 
+    let integration_deletes = integrations.map(async(integration) => 
     {
         if(integration.type === integrationTypes.GITHUB)
         {
             fetch(`https://api.github.com/applications/${GITHUB_OAUTH_CLIENT_ID}/tokens/${integration.token}`,{
                 method:'DELETE'
             })
-            .then(res => console.log(res.status))
+            .then(res => console.log("result from token delete: ",res.status))
         }
-        const result = await Integration.deleteOne({_id:integration._id})
-        console.log(result)
+        return await Integration.deleteOne({_id:integration._id})
+        
     })
 
-    
+    return new Promise((resolve,reject) => {
 
-    const result = await User.deleteOne({_id:user._id})
-    return result
+        Promise.all([...workspace_deletes, ...integration_deletes])
+        .then(() => {
+            User.deleteOne({_id:user._id})
+            .then((val) => resolve(val))
+            .catch((error) => reject(error))
+        })
+       
+    })
+
 
 }
 

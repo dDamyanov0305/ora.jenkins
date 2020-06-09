@@ -21,6 +21,8 @@ const projectSchema = mongoose.Schema({
         type: String,
         require: true
     },
+    url:String,
+    repo_id: String,
     assigned_team: [ {type: mongoose.SchemaTypes.ObjectId, ref: 'User'} ],
     create_date:{
         type: Date,
@@ -28,21 +30,28 @@ const projectSchema = mongoose.Schema({
     }
 })
 
-
-projectSchema.methods.delete = async function(){
+projectSchema.methods.delete = async function(user){
 
     const project = this
 
+    console.log('deleting project ', project.name)
+
     const pipelines = await Pipeline.find({ project_id: project._id })
 
-    pipelines.forEach(async(pipeline) => await pipeline.delete())
+    let pipeline_deletes = pipelines.map(async(pipeline) => await pipeline.delete(this, user))
 
-    const result = await Project.deleteOne({_id:project._id})
+    return new Promise((resolve,reject) => {
 
-    return result
+        Promise.all(pipeline_deletes)
+        .then(() => {
+            Project.deleteOne({_id:project._id})
+            .then((val) => resolve(val))
+            .catch((error) => reject(error))
+        })
+       
+    })
 
 }
 
 const Project = mongoose.model('Project', projectSchema)
-
 module.exports = Project

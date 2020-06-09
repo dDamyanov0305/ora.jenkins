@@ -1,10 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth')
-const checkPermission = require('../middleware/checkPermission')
+const check_permission = require('../middleware/check_permission')
 const Project = require('../models/Project')
 
-router.post('/projects/all', [auth, checkPermission], async(req, res) => {
+router.post('/projects/all', [auth, check_permission], async(req, res) => {
 
     try{
         const projects = await Project.find({ workspace_id: req.workspace._id })
@@ -17,7 +17,7 @@ router.post('/projects/all', [auth, checkPermission], async(req, res) => {
 
 })
 
-router.post('/projects/get', [auth, checkPermission], async(req, res) => {
+router.post('/projects/get', [auth, check_permission], async(req, res) => {
 
     const { project_id } = req.body
 
@@ -37,12 +37,12 @@ router.post('/projects/get', [auth, checkPermission], async(req, res) => {
 })
 
 
-router.post('/projects/create', [auth, checkPermission], async(req, res) => {
+router.post('/projects/create', [auth, check_permission], async(req, res) => {
 
-    const { name, repository, hosting_provider } = req.body
+    const { name, repository, hosting_provider, id: repo_id } = req.body
 
     try{
-        const project = await Project.create({ name, repository, hosting_provider, workspace_id: req.workspace._id, assigned_team: [req.user._id] })
+        const project = await Project.create({ name, repository, hosting_provider, workspace_id: req.workspace._id, assigned_team: [req.user._id], repo_id })
         res.status(201).json({project})
     }
     catch(error){
@@ -51,7 +51,7 @@ router.post('/projects/create', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.post('/projects/assign', [auth, checkPermission], async(req, res) => {
+router.post('/projects/assign', [auth, check_permission], async(req, res) => {
 
     const { project_id, assignee_id } = req.body
 
@@ -73,9 +73,9 @@ router.post('/projects/assign', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.post('/projects/unassign', [auth, checkPermission], async(req, res) => {
+router.post('/projects/unassign', [auth, check_permission], async(req, res) => {
 
-   const { project_id, assignee_id } = req.body
+    const { project_id, assignee_id } = req.body
 
     try{
         const project = await Project.findOne({ workspace_id: req.workspace._id, _id: project_id })
@@ -94,11 +94,11 @@ router.post('/projects/unassign', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.delete('/projects/all', [auth, checkPermission], async(req, res) => {
+router.delete('/projects/all', [auth, check_permission], async(req, res) => {
 
     try{
         const projects = await Project.find({ workspace_id: req.workspace._id })
-        projects.forEach(project => project.delete())
+        projects.forEach(project => project.delete(req.user))
         res.status(200).send()
     }
     catch(error){
@@ -107,14 +107,14 @@ router.delete('/projects/all', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.delete('/projects', [auth, checkPermission], async(req, res) => {
+router.delete('/projects', [auth, check_permission], async(req, res) => {
 
     const { project_id } = req.body
 
     try{
         const project = await Project.findById(project_id)
-        project.delete()
-        res.status(200).send()
+        let del = project.delete(req.user)
+        res.status(200).send(del)
     }
     catch(error){
         console.log(error)

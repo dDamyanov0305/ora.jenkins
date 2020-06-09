@@ -1,4 +1,5 @@
 import { observable, action } from 'mobx';
+import React from 'react'
 import user from './UserStore'
 import workspaceStore from './WorkspaceStore';
 import pipelineStore from './PipelineStore';
@@ -9,12 +10,19 @@ class RunPipelineStore {
 
 	@observable data = {
         comment:'',
-        revision:'',
+        revision:{},
     };
 
     @observable pipeline = null;
     @observable commits = [];
     @observable showModal = false;
+
+    revisionRef = React.createRef()
+    commitsRef = React.createRef()
+
+    constructor(){
+        document.addEventListener('click', this.closeCommits)
+    }
 
 
 	@action setPipeline(pipeline) {
@@ -24,8 +32,8 @@ class RunPipelineStore {
     }
     
     @action setCommits({commits}) {
-        console.log(commits)
-		this.commits = commits
+        this.commits = commits
+        this.data.revision = commits[0]
     }
     
     @action closeModal = () => {
@@ -34,6 +42,12 @@ class RunPipelineStore {
 
     @action handleChange = (e) => {
         this.data[e.target.name] = e.target.value
+    }
+
+    @action selectCommit = (commit) => {
+        console.log(commit)
+        this.data.revision = commit
+        console.log(this.data.revision)
     }
 
     
@@ -73,6 +87,18 @@ class RunPipelineStore {
         this.closeModal()
     }
 
+    @action openCommits = (e) => {
+        console.log("aaaaaaaaaaaaaaaa")
+        this.revisionRef.current.classList.toggle('shadow')
+        this.commitsRef.current.classList.toggle('show')
+    }
+
+    @action closeCommits = (e) => {
+        if(this.revisionRef.current){
+            this.revisionRef.current.classList.remove('shadow')
+            this.commitsRef.current.classList.remove('show')
+        }
+    }
 
 }
 

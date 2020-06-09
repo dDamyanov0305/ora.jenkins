@@ -14,13 +14,16 @@ class UserStore {
 		this.token = storage.get('ora.ci_token');
 		console.log(this.token)
 		if (this.token) {
-			this.getMe()
+			this.getMe(true)
+		}else{
+			storage.remove('ora.ci_workspace')
 		}
 
 	}
 
 	getMe = async () => {
-		const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/users/me`,{
+		const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/users/me`,
+		{
 			headers:{'Authorization':`Bearer ${this.token}`}
 		})
 
@@ -30,7 +33,8 @@ class UserStore {
             console.log(data.error)
         }
         else{
-            this.setAccount(data)
+			this.setAccount(data)
+
         }
 	}
 

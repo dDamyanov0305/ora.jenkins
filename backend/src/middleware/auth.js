@@ -4,7 +4,6 @@ const User = require('../models/User')
 
 const auth = async(req, res, next) => {
 
-
     const tokens = req.header('Authorization')
     let token = null
 

@@ -17,6 +17,8 @@ const integrationSchema = mongoose.Schema({
         type: String,
         required: true
     },
+    refresh_token: String,
+    expires_in: Number,
     create_date:{
         type: Date,
         default: Date.now()

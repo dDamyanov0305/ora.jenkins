@@ -9,18 +9,16 @@ import projectStore from '../../Stores/ProjectStore';
 
 const ExecutionsPanel = observer(() => 
     <div>
-        {pipelineExecutionStore.executions.map(execution => <ExecutionCard key={execution._id} execution={execution}/>)}
-
+        {pipelineExecutionStore.pipeline_executions.map(pipeline_execution => <ExecutionCard key={pipeline_execution._id} pipeline_execution={pipeline_execution}/>)}
     </div>
 )
 
-const ExecutionCard = observer(({execution}) => {
+const ExecutionCard = observer(({pipeline_execution}) => {
 
-    const {pipeline_execution, action_executions} = execution
     const {executor, date, comment, status} = pipeline_execution
 
     return (
-        <div onClick={()=> pipelineExecutionStore.selectExecution(execution)}>
+        <div onClick={()=> pipelineExecutionStore.selectExecution(pipeline_execution)}>
             <p>{executor}</p>
             <p>{moment(date).format("DD MMM h:mm A")}</p>
             <p>{comment}</p>

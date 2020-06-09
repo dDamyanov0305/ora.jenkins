@@ -6,7 +6,9 @@ module.exports = {
     },
     integrationTypes: {
         GITHUB: 'GITHUB',
-        ORA: 'ORA'
+        ORA: 'ORA',
+        GITLAB: 'GITLAB',
+        BITBUCKET: 'BITBUCKET'
     },
     actionTypes: {
         BUILD:'BUILD',
@@ -37,5 +39,10 @@ module.exports = {
         ON_FAILURE: 'ON_FAILURE',
         NEVER:'NEVER'
     },
+    inviteStatus:{
+        PENDING:"PENDING",
+        ACCEPTED:"ACCEPTED",
+        REJECTED:"REJECTED"
+    }
 }
 

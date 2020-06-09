@@ -1,6 +1,7 @@
 import { observable, action } from 'mobx';
 import user from '../Stores/UserStore'
 import routeStore from './RouteStore'
+import pipelineFormStore from './PipelineFormStore';
 
 class LoginRegisterStore {
 
@@ -13,20 +14,34 @@ class LoginRegisterStore {
         this.data[e.target.name] = e.target.value
     }
 
-    @action togglePassword = () => {
+    @action togglePassword = (event) => {
+        event.target.classList.toggle('clicked')
         this.showPassword = !this.showPassword
     }
 
-    changeForm = () => {
+    @action changeForm = () => {
         if(routeStore.pathname === "/login"){
             routeStore.push("/register")
         }
         else if(routeStore.pathname === "/register"){
             routeStore.push("/login")
         }
+        this.data = {}
     }
 
-    submit = async (e) => {
+    handleFocus = event => {
+        pipelineFormStore.allowValue[event.target.name] = true
+        event.target.parentNode.parentNode.classList.add("focus");
+    }
+
+    handleBlur = event => {
+        if(event.target.value == ""){
+            pipelineFormStore.allowValue[event.target.name] = false
+            event.target.parentNode.parentNode.classList.remove("focus");
+        }
+    }
+
+    @action submit = async (e) => {
        
         e.preventDefault()
         const route = routeStore.pathname === "/login" ? "login" : "create"

@@ -8,16 +8,26 @@ import pipelineStore from './PipelineStore';
 
 class PipelineExecutionStore {
 
-    @observable executions = [];
-    @observable execution;
+    @observable pipeline_executions = [];
+    @observable selected_execution;
+    @observable action_executions = []
 
 
-	@action setData({executions}) {
-		console.log(executions)
-		this.executions = executions;
-	}
+	@action setPipelineExecutions({pipeline_executions}) {
+		this.pipeline_executions = pipeline_executions;
+    }
+    
+    @action setActionExecutions({action_executions}) {
+		this.action_executions = action_executions;
+    }
+    
+    @action selectExecution(execution){
+        this.selected_execution = execution
+        this.getActionExecutions()
+        routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
+    }
 
-    @action getExecutions(){
+    getPipelineExecutions = () => {
         fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/executions`,{
             method:'POST',
             headers:{
@@ -27,12 +37,35 @@ class PipelineExecutionStore {
             body:JSON.stringify({workspace_id:workspaceStore.currentWorkspace._id, pipeline_id:pipelineStore.currentPipeline._id})
         })
         .then(res => res.json())
-        .then(data => this.setData(data))
+        .then(data => this.setPipelineExecutions(data))
     }
 
-    @action selectExecution(execution){
-        this.execution = execution
-        routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
+    getActionExecutions = () => {
+        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/execution_details`,{
+            method:'POST',
+            headers:{
+                'Authorization':`Bearer ${user.token}`,
+                'Content-type':'application/json'
+            },
+            body:JSON.stringify({workspace_id:workspaceStore.currentWorkspace._id, pipeline_id:pipelineStore.currentPipeline._id, pipeline_execution_id: this.selected_execution._id})
+        })
+        .then(res => res.json())
+        .then(data => this.setActionExecutions(data))
+    }
+
+    getLatestExecutions = () => {
+        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/executions/all`,{
+            method:'POST',
+            headers:{
+                'Authorization':`Bearer ${user.token}`,
+                'Content-type':'application/json'
+            },
+            body:JSON.stringify({workspace_id:workspaceStore.currentWorkspace._id})
+        })
+        .then(res => res.json())
+        .then(data => this.setPipelineExecutions(data))
+
+        routeStore.push('/executions/latest')
     }
 
 

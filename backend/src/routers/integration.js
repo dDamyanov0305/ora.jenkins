@@ -3,7 +3,6 @@ const router = express.Router()
 const auth = require('../middleware/auth')
 const Integration = require('../models/Integration')
 
-
 router.get('/integrations/all', auth, async(req, res) => {
 
     try{
@@ -16,7 +15,6 @@ router.get('/integrations/all', auth, async(req, res) => {
     }
 
 })
-
 
 router.delete('/integrations/all', auth, async(req, res) => {
 
@@ -33,7 +31,6 @@ router.delete('/integrations/all', auth, async(req, res) => {
 
 })
 
-
 router.post('/integration/get', auth, async(req, res) => {
 
     const { _id } = req.body
@@ -48,7 +45,5 @@ router.post('/integration/get', auth, async(req, res) => {
     }
     
 })
-
-
 
 module.exports = router

@@ -4,15 +4,13 @@ const auth = require('../middleware/auth')
 const Pipeline = require('../models/Pipeline')
 const Action = require('../models/Action')
 const Project = require('../models/Project')
-const ActionExecution = require('../models/ActionExecution')
+const User = require('../models/User')
 const PipelineExecution = require('../models/PipelineExecution')
-const Integration = require('../models/Integration')
-const {triggerModes, integrationTypes} = require('../constants')
-const checkPermission = require('../middleware/checkPermission')
-const fetch = require('node-fetch')
-const docker = require('../docker/Docker')
+const PipelineController = require('../controllers/PipelineController')
+const { triggerModes } = require('../constants')
+const check_permission = require('../middleware/check_permission')
 
-router.post('/pipelines/all', [auth, checkPermission], async(req, res) => {
+router.post('/pipelines/all', [auth, check_permission], async(req, res) => {
 
     const { project_id } = req.body
 
@@ -27,8 +25,7 @@ router.post('/pipelines/all', [auth, checkPermission], async(req, res) => {
 
 })
 
-
-router.post('/pipelines/get', [auth, checkPermission], async(req, res) => {
+router.post('/pipelines/get', [auth, check_permission], async(req, res) => {
 
     const { pipeline_id } = req.body
 
@@ -51,42 +48,49 @@ router.post('/pipelines/get', [auth, checkPermission], async(req, res) => {
 
 router.post('/pipelines/:pipeline_id/webhook-trigger', async(req, res) => {
 
-    try
-    {
-        const { pipeline_id } = req.params
-        const { head_commit, commits, ref} = req.body
-        const { id, message, author } = head_commit
-        const committers = commits.map(commit => commit.committer.email)
-        const refs = ref.split('/')
+    if(req.header("X-GitHub-Event") === 'push'){
 
-        console.log(committers)
+        console.log(req.params)
+
+        try{
+            const { pipeline_id } = req.params
+            const { head_commit, commits, ref} = req.body
+            const { id, message, author } = head_commit
+            const committers = commits.map(commit => commit.committer.email)
+            const refs = ref.split('/')
+            
+            const pipeline = await Pipeline.findOne({_id: pipeline_id, branch: refs[refs.length-1]})
+            const project = await Project.findById(pipeline.project_id)
+            const user = await User.findById(pipeline.creator_id)
+
+            console.log(pipeline.name, pipeline.project_id, project)
     
-        const pipeline = await Pipeline.find({_id:pipeline_id,branch:refs[refs.length-1]})
-
-        const project = await Project.findById(pipeline.project_id)
-
-        const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id).email))
-
-        committers.forEach(email => {
-            if(!email_recipients.includes(email)){
-                email_recipients.push(email)
-            }
-        })
-
-        pipeline.run({ 
-            triggerMode:triggerModes.PUSH, 
-            comment:message, 
-            revision:id, 
-            executor: author.email,
-            email_recipients,
-            project
-        })    
-        res.status(202).send()
-    }
-    catch(error)
-    {
-        console.log(error)
-        res.status(500).send({error:error.message})
+            const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id).email))
+    
+            committers.forEach(email => {
+                if(!email_recipients.includes(email)){
+                    email_recipients.push(email)
+                }
+            })
+    
+            pipeline.run({ 
+                triggerMode:triggerModes.PUSH, 
+                comment:message, 
+                revision:id, 
+                executor: author.email,
+                email_recipients,
+                project,
+                user_id:user._id
+            })    
+            res.sendStatus(200)
+        }
+        catch(error)
+        {
+            console.log(error)
+            res.sendStatus(500)
+        }
+    }else{
+        res.sendStatus(200)
     }
 
 })
@@ -94,29 +98,31 @@ router.post('/pipelines/:pipeline_id/webhook-trigger', async(req, res) => {
 router.post('/pipelines/:pipeline_id/cron-trigger', async(req, res) => {
 
     const { pipeline_id } = req.params
-    const pipeline = await Pipeline.findOne({ pipeline_id })
-    const executor = await User.findById(pipeline.creator)
-    
+
+    const pipeline = await Pipeline.findById(pipeline_id)
     const project = await Project.findById(pipeline.project_id)
-    
-    const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id).email))
+    const executor = await User.findById(pipeline.creator_id)
+    const email_recipients = await Promise.all(project.assigned_team.map(async(id) => (await User.findById(id)).email))
+
+    console.log(email_recipients)
 
     pipeline.run({ 
         triggerMode:triggerModes.RECCURENTLY, 
         comment:`Scheduled run for pipeline ${pipeline.name}`, 
-        revision:null, 
+        revision: pipeline.branch, 
         executor: executor.email, 
         email_recipients,
-        project  
+        project,
+        user_id:executor._id  
     })    
     res.status(202).send()
 
 })
 
-router.post('/pipelines/run', [auth, checkPermission], async(req, res) => {
+router.post('/pipelines/run', [auth, check_permission], async(req, res) => {
 
-    console.log(req.body)
     const { pipeline_id, comment, revision } = req.body
+    console.log(req.body)
 
     try{
         const pipeline = await Pipeline.findById(pipeline_id)
@@ -125,24 +131,27 @@ router.post('/pipelines/run', [auth, checkPermission], async(req, res) => {
             throw new Error('couldn\'t find pipeline')
 
         const project = await Project.findById(pipeline.project_id)
+        const email_recipients = await Promise.all(project.assigned_team.map(async(id) => (await User.findById(id)).email))
+        console.log("emails",email_recipients)
+        pipeline.run({ 
+            user_id: req.user._id, 
+            triggerMode: triggerModes.MANUAL, 
+            comment,
+            executor: req.user.email, 
+            revision,
+            project, 
+            email_recipients
+        })
 
-        const email_recipients = project.assigned_team.map(async(id) => (await User.findById(id)).email)
-
-       
-        pipeline.run({triggerMode:triggerModes.MANUAL, comment, executor:req.user.email, revision, project, email_recipients})
-        res.status(200).send()
-        
-
+        res.status(200).send()     
     }
     catch(error){
         console.log(error)
         res.status(500).json({error:error.message})
     }
-    
 })
 
-
-router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
+router.post('/pipelines/create', [auth, check_permission], async(req, res) => {
 
     const { 
         name, 
@@ -157,6 +166,7 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
         docker_password,
         docker_image_tag,
         docker_repository,
+        workdir,
     } = req.body
 
     console.log(req.body)
@@ -167,124 +177,35 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
             branch, 
             trigger_mode, 
             project_id,
-            creator: req.user._id,
+            creator_id: req.user._id,
             push_image,
             docker_user,
             docker_password,
             docker_image_tag,
             docker_repository, 
+            workdir
         })
 
-        if(emailing)
-            pipeline.emailing = email_time
-
         const project = await Project.findById(project_id)
-
         
-        if(!pipeline || !project)
+        if(!pipeline || !project){
             throw new Error('Couldn\'t create pipeline.')
-
-        if(trigger_mode === triggerModes.PUSH)
-        {
-
-            const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
-     
-            const result = await fetch(`https://api.github.com/repos/${project.repository}/hooks`,{
-                method:'POST',
-                headers:{
-                    "Content-type": "application/json",
-                    "Authorization": "token " + integration.token
-                },
-                body:JSON.stringify({
-                    "name": "web",
-                    "active": true,
-                    "events": [
-                        "push",
-                    ],
-                    "config": {
-                        "url": `${process.env.SERVER_ADDRESS}/pipelines/${pipeline._id}/webhook-trigger`,
-                        "content_type": "json",
-                        "insecure_ssl": "0"
-                    }
-                })
-            })
+        }
         
-            if(result.status < 200 || result.status >= 300){
-                console.log(result.status)
-                return res.sendStatus(result.status)
-            }
-            else{
-                const { id: hook_id } = await result.json()
-                pipeline.hook_id = hook_id
-                pipeline.save()
-                res.status(201).json({pipeline})
-            }
+        if(emailing){
+            pipeline.emailing = email_time
+        }
 
+        if(trigger_mode === triggerModes.PUSH){
+            PipelineController.create_hook({project, pipeline, user_id: req.user._id})
         }
         else if(trigger_mode === triggerModes.RECCURENTLY){
-
-            pipeline.cron_date = cron_date
-
-            const setup_commands = [
-                'apt-get update && apt-get install -y cron && apt-get install -y curl',
-                'touch /etc/cron.d/cron-job && touch /var/log/cron.log',
-                `echo -e "${cron_date} curl -X POST ${process.env.SERVER_ADDRESS}/pipelines/${pipeline._id}/cron-trigger\n" > /etc/cron.d/cron-job`,
-                'chmod 0644 /etc/cron.d/cron-job',
-                'crontab /etc/cron.d/cron-job',
-                'cron'
-            ].join(' && ')
-
-            console.log(setup_commands)
-
-            const container = await docker.createContainer({
-                AttachStdin: false,
-                AttachStdout: true,
-                AttachStderr: true,
-                Tty: true,
-                Image: 'ubuntu',
-                Env: [`AUTH=${req.token}`]
-            })
-
-            
-            if(!container)
-                throw new Error("Unable to create container for cron pipeline.")
-
-            await container.start()
-
-            pipeline.cron_container_id = container.id
-
-            const exec = await container.exec({
-                AttachStdin: false,
-                AttachStdout: true,
-                AttachStderr: true,
-                Tty: true,
-                Cmd: ['/bin/bash', '-c', `${setup_commands}`]
-            })
-
-            
-            const stream = await exec.start({Tty: true})
-
-
-            stream.on('data',(data)=>{
-                console.log(data.toString())
-            })
-
-            stream.on('error',()=>{
-                res.status(201).json({error:'Couldn\'t setup cron task for pipeline.'})
-            })
-
-            stream.on('end',()=>{
-                console.log('end')
-                pipeline.save()
-                res.status(201).json({pipeline})
-            })
-
+            PipelineController.create_cron_job({pipeline, token: req.token, cron_date})
         }
-        else{
-            console.log(pipeline)
-            pipeline.save()
-            res.status(201).json({pipeline})
-        }
+
+        console.log(pipeline)
+        await pipeline.save()
+        res.status(201).json({pipeline})
         
     }
     catch(error){
@@ -293,13 +214,28 @@ router.post('/pipelines/create', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.post('/pipelines/executions', [auth, checkPermission], async(req, res) => {
+router.post('/pipelines/execution_details', [auth, check_permission], async(req, res) => {
+
+    const { pipeline_execution_id, pipeline_id } = req.body
+
+    try{
+        const action_executions = await PipelineController.getActionExecutions(pipeline_id, pipeline_execution_id)
+        res.status(200).json({action_executions})
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
+    }
+
+})
+
+router.post('/pipelines/executions', [auth, check_permission], async(req, res) => {
 
     const { pipeline_id } = req.body
 
     try{
-        const executions = await Pipeline.getExecutions(pipeline_id)
-        res.status(200).json({executions})
+        const pipeline_executions = await PipelineExecution.find({pipeline_id})
+        res.status(200).json({pipeline_executions})
     }
     catch(error){
         console.log(error)
@@ -308,13 +244,14 @@ router.post('/pipelines/executions', [auth, checkPermission], async(req, res) =>
 
 })
 
-router.delete('/pipelines/all', [auth, checkPermission], async(req, res) => {
+router.delete('/pipelines/all', [auth, check_permission], async(req, res) => {
 
     const { project_id } = req.body
 
     try{
+        const project = await Project.findById(pipeline.project_id)
         const pipelines = await Pipeline.find({project_id})
-        pipelines.forEach(pipeline => pipeline.delete())
+        pipelines.forEach(pipeline => pipeline.delete(project, req.user))
         res.status(200).send()
     }
     catch(error){
@@ -323,15 +260,15 @@ router.delete('/pipelines/all', [auth, checkPermission], async(req, res) => {
     }
 })
 
-router.delete('/pipelines', [auth, checkPermission], async(req, res) => {
+router.delete('/pipelines', [auth, check_permission], async(req, res) => {
 
     const { pipeline_id } = req.body
 
     try{
         const pipeline =  await Pipeline.findById(pipeline_id )
         const project = await Project.findById(pipeline.project_id)
-        pipeline.delete(project, req.user)
-        res.status(200).send()
+        let del = await pipeline.delete(project, req.user)
+        res.status(200).send(del)
     }
     catch(error){
         console.log(error)

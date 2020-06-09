@@ -30,9 +30,13 @@ router.get('/github/oauth', auth, async (req, res) => {
             res.status(result.status).send()
         }
         else{
+            
             const { access_token: token } = await result.json()
-            const getName = await fetch('https://api.github.com/user',{headers:{"Authorization":`token ${token}`}})
-            const { login: username } = await getName.json()
+            
+            const getNameResult = await fetch('https://api.github.com/user',{headers:{"Authorization":`token ${token}`}})
+            
+            const { login: username } = await getNameResult.json()
+            
             const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.GITHUB, token, username })
             res.status(201).json({integration})
         }
@@ -53,20 +57,40 @@ router.get('/github/repos', auth, async (req, res) => {
         res.status(400).json({error:'Not integrated with selectet hosting provider.'})
     }
 
-    const result = await fetch('https://api.github.com/user/repos',{
+    const personal_repos = await (await fetch('https://api.github.com/user/repos',{
         headers:{
             "Content-type": "application/json",
             "Authorization": "token " + integration.token
         }
-    })
+    })).json()
 
-    if(result.status < 200 || result.status >= 300){
-        res.status(result.status).json({error:'Not integrated with selectet hosting provider.'})
+    const organization_repos = []
+
+    const orgs_names = (await (await fetch('https://api.github.com/user/orgs',{
+        headers:{
+            "Content-type": "application/json",
+            "Authorization": "token " + integration.token
+        }
+    })).json()).map(org => org.login)
+
+    console.log(orgs_names)
+
+    for(const name of orgs_names){
+
+        const org_repo = await (await fetch(`https://api.github.com/orgs/${name}/repos`,{
+            headers:{
+                "Content-type": "application/json",
+                "Authorization": "token " + integration.token
+            }
+        })).json()
+
+        organization_repos.push(org_repo)
     }
-    else{
-        const repos = await result.json()
-        res.status(200).json({repos})
-    }
+
+
+   console.log(organization_repos)
+    res.status(200).json({personal_repos, organization_repos})
+    
 })
 
 router.post('/github/repo/branches', auth, async (req, res) => {
@@ -118,7 +142,9 @@ router.post('/github/repo/commits', auth, async (req, res) => {
     }
     else{
         const data = await result.json()
-        const commits = data.map(commit => ({sha:commit.sha, message:commit.commit.message}))
+        // const commits = data.map(commit => `${commit.sha}/${commit.commit.message}`)
+        const commits = data.map(commit => ({sha:commit.sha , message: commit.commit.message}))
+        console.log(commits)
         res.status(200).json({commits})
     }
 })

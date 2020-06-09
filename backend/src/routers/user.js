@@ -4,7 +4,6 @@ const Integration = require('../models/Integration')
 const auth = require('../middleware/auth')
 const router = express.Router()
 const Workspace = require('../models/Workspace')
-const bcrypt = require('bcryptjs')
 
 router.post('/users/create', async (req, res) => {
 
@@ -14,7 +13,7 @@ router.post('/users/create', async (req, res) => {
 
         if(password.lenght < 5)
             throw new Error("Your password must be at least 5 characters long.")
-        
+
 
         if(password !== confirmedPassword)
             throw new Error("Your passwords don't match.")
@@ -34,7 +33,9 @@ router.post('/users/create', async (req, res) => {
             members:[user._id]
         })
 
-        res.status(201).json({user, token})
+        const integrations = await Integration.find({ user_id: user._id })
+
+        res.status(201).json({user, token, integrations})
     } 
     catch (error) {
         res.status(500).json({error:error.message})
@@ -59,7 +60,6 @@ router.post('/users/login', async(req, res) => {
 
 router.get('/users/me', auth, async(req, res) => {
     const integrations = await Integration.find({ user_id: req.user._id })
-    console.log(integrations)
     res.json({user:req.user, token: req.token, integrations})
 })
 
@@ -88,28 +88,15 @@ router.get('/users/all', async (req, res) => {
     res.status(200).json({users})
 })
 
-router.delete('/users/all', async (req, res) => {
 
-    try{
-        const users = await User.find({})
-        users.forEach(user => user.delete())
-        res.status(200).send()
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
-
-})
-
-router.delete('/users', async (req, res) => {
+router.delete('/users', auth, async (req, res) => {
 
     const { user_id } = req.body
 
     try{
         const user = await User.findById(user_id)
-        user.delete()
-        res.status(200).send()
+        let del = user.delete()
+        res.status(200).send(del)
     }
     catch(error){
         console.log(error)

@@ -7,20 +7,15 @@ import projectStore from './ProjectStore';
 import actionStore from './ActionStore';
 import storage from '../Services/perfectLocalStorage';
 
-
-
 class ActionFormStore {
 
     default_data = {
         name:'',
         shell_script:false,
         execute_script:'',
-        filename:'',
         execute_commands:'',
-        prev_action_id: null,
-        next:null,
-        docker_image_name:'',
-        docker_image_tag:'',
+        prev_action_id: '',
+        next:'',
         variables: [],
         var_key: '',
         var_val: '',
@@ -38,49 +33,66 @@ class ActionFormStore {
     @observable tasks = []
     @observable lists = []
     @observable showModal = false
-    edited = false
-
-    @action applyTaskLinkage = (e) => {
-        e.preventDefault()
-        
-        if(!this.data.ora_project_id){ 
-            this.modalError = 1
-        }
-        else if(!this.data.ora_task_id){ 
-            this.modalError = 2
-        }
-        else if(!this.data.ora_list_id_on_success){ 
-            this.modalError = 3
-        }
-        else if(!this.data.ora_list_id_on_failure){ 
-            this.modalError = 4
-        }
-        else{
-            this.modalError = 0
-            this.showModal = false
-            this.edited = false
-        }
-    }
 
     @action openModal = (e) => {
         e.preventDefault()
         this.showModal = true
     }
 
-    @action dismissTaskLinkage = (e) => {
+    @action closeModal = (e) => {
         e.preventDefault()
-
         this.showModal = false
-        this.data.task_linkage = false
-        this.data.ora_project_id = null
-        this.data.ora_task_id = null
-        this.data.ora_list_id_on_success = null
-        this.data.ora_list_id_on_failure = null
     }
 
-    submit = async (e) => {
+    @action submit = async (e) => {
 
         e.preventDefault()
+
+        if(this.data.task_linkage){
+            if(!this.data.ora_project_id){ 
+                this.modalError = 1
+            }
+            else if(!this.data.ora_task_id){ 
+                this.modalError = 2
+            }
+            else if(!this.data.ora_list_id_on_success){ 
+                this.modalError = 3
+            }
+            else if(!this.data.ora_list_id_on_failure){ 
+                this.modalError = 4
+            }
+            else{
+                this.modalError = 0
+                this.showModal = false
+            }
+
+            if(this.modalError){
+                this.showModal = true
+                return
+            }
+            
+        }
+
+        if(!this.data.name){
+            this.formError = 1
+        }
+        else if(this.data.shell_script && !this.data.execute_script){
+            this.formError = 3
+        }
+        else if(!this.data.shell_script && !this.data.execute_commands){
+            this.formError = 3
+        }
+        else{
+            this.formError = 0
+        }
+
+        if(this.formError){
+            this.errorText = 'Fill all required fields'
+            return
+        }else{
+            this.errorText = ''
+        }
+
         const data = new FormData()
 
         if(this.data.prev_action_id){
@@ -97,8 +109,6 @@ class ActionFormStore {
         data.append('name',this.data.name)
         data.append('variables',JSON.stringify(this.data.variables))
         data.append('execute_commands',JSON.stringify(this.data.execute_commands.split('\n')))
-        data.append('docker_image_name',this.data.docker_image_name)
-        data.append('docker_image_tag',this.data.docker_image_tag)
         data.append('pipeline_id',pipelineStore.currentPipeline._id)
         data.append('workspace_id',workspaceStore.currentWorkspace._id)
         data.append('task_linkage',this.data.task_linkage)
@@ -124,7 +134,7 @@ class ActionFormStore {
         else{
             this.data = this.default_data
             actionStore.getActions()
-            routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}`)
+            routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/actions`)
         }
                                 
     }
@@ -132,6 +142,21 @@ class ActionFormStore {
     @action handleChange = (e) => {
         this.data[e.target.name] = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     }
+
+    @action updateKey = (e, index) =>{
+        this.data.variables[index] = {
+            key:e.target.value,
+            value: this.data.variables[index].val
+        }
+    }
+
+    @action updateVal = (e, index) =>{
+        this.data.variables[index] = {
+            key: this.data.variables[index].key,
+            value: e.target.value
+        }
+    }
+
 
     @action handleFile = (e) => {
         this.data[e.target.name] = e.target.files[0]
@@ -155,24 +180,32 @@ class ActionFormStore {
 
     @action checkTaskLinkage = (e) => {
 
-        this.data[e.target.name] = e.target.checked
+        this.data.task_linkage = e.target.checked
 
         if(e.target.checked)
         {
             const isIntegrated =  user.integrations.find(integration => integration.type === "ORA")
             
             if(!isIntegrated){
-                storage.set("return_uri",routeStore.pathname)
+                
+                storage.set("return_uri",'/action/create')
                 window.open(`https://ora.pm/authorize?client_id=${process.env.REACT_APP_ORA_OAUTH_CLIENT_ID}&redirect_uri=http://localhost:3000/ora/oauth/callback&response_type=code`,'_blank','height=570,width=520')
+                
+
             }else{
                 this.showModal = true
-                this.getProjects()
+                this.fetchProjects()
             }
+        }else{
+            this.data.ora_project_id = null
+            this.data.ora_task_id = null
+            this.data.ora_list_id_on_success = null
+            this.data.ora_list_id_on_failure = null
         }
     }
 
 
-    @action getProjects = async() => {
+    @action fetchProjects = async() => {
         const projectsRes = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/projects`,{
             headers:{
                 'Authorization':`Bearer ${user.token}`,
@@ -230,7 +263,6 @@ class ActionFormStore {
     }
 
     @action setPos = (prev, next) => {
-        console.log(prev, next)
         this.data.prev_action_id = prev
         this.data.next = next
     }

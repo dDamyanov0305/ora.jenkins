@@ -9,20 +9,28 @@ class ProjectStore {
 
 	@observable currentProject;
     @observable projects = [];
+    @observable loading = true
 
 
 	@action setData({projects}) {
-		console.log(projects)
+        this.loading = false
 		this.projects = projects;
 	}
 
+
+    @action setProject(project){
+        this.currentProject = project
+        pipelineStore.getPipelines()
+    }
+
 	@action selectProject(project){
         this.currentProject = project
-        pipelineStore.getPipelines(this.currentProject._id)
+        pipelineStore.getPipelines()
         routeStore.push(`/project/${this.currentProject.name}/pipelines`)
     }
     
     @action getProjects(){
+        this.loading = true
         fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/projects/all`,{
             method:'POST',
             headers:{
@@ -36,6 +44,7 @@ class ProjectStore {
     }
 
     delete = async(project) => {
+        this.loading = true
         fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/projects`,{
             method:'DELETE',
             headers:{

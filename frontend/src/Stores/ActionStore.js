@@ -13,7 +13,6 @@ class ActionStore {
 
 
 	@action setData({actions}) {
-		console.log(actions)
 		this.actions = actions
     }
     
@@ -23,7 +22,7 @@ class ActionStore {
     }
 
     
-    @action getActions(){
+    getActions(){
         fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/actions/all`,{
             method:'POST',
             headers:{
@@ -36,7 +35,7 @@ class ActionStore {
         .then(data => this.setData(data))
     }
 
-    delete = async(action) => {
+    delete(action){
         fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/actions`,{
             method:'DELETE',
             headers:{
@@ -51,7 +50,6 @@ class ActionStore {
 
     }
 
-    
 }
 
 const actionStore = new ActionStore();

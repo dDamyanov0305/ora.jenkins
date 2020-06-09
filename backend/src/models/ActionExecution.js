@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const { executionStatus } = require('../constants')
+const ActionExecutionController = require('../controllers/ActionExecutionController')
 
 const actionExecutionSchema = mongoose.Schema({
     action_id:{
@@ -21,8 +22,11 @@ const actionExecutionSchema = mongoose.Schema({
         type: Date,
         default: Date.now()
     },
+    log_id: String
 })
 
+actionExecutionSchema.methods.getlog = ActionExecutionController.getlog
+actionExecutionSchema.methods.delete = ActionExecutionController.delete
 
 const ActionExecution = mongoose.model('ActionExecution', actionExecutionSchema)
 module.exports = ActionExecution

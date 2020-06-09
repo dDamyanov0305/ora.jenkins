@@ -17,14 +17,19 @@ class PipelineStore {
 
 
 	@action setData({pipelines}) {
-		console.log(pipelines)
 		this.pipelines = pipelines;
 	}
+
+    @action setPipeline(pipeline){
+        this.currentPipeline = pipeline
+        actionStore.getActions(this.currentPipeline._id)
+        pipelineExecutionStore.getPipelineExecutions()
+    }
 
 	@action selectPipeline(pipeline){
         this.currentPipeline = pipeline
         actionStore.getActions(this.currentPipeline._id)
-        pipelineExecutionStore.getExecutions()
+        pipelineExecutionStore.getPipelineExecutions()
         routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${this.currentPipeline.name}`)
     }
     
@@ -35,7 +40,10 @@ class PipelineStore {
                 'Authorization':`Bearer ${user.token}`,
                 'Content-type':'application/json'
             },
-            body:JSON.stringify({workspace_id:workspaceStore.currentWorkspace._id, project_id:projectStore.currentProject._id})
+            body:JSON.stringify({
+                workspace_id:workspaceStore.currentWorkspace._id, 
+                project_id:projectStore.currentProject?._id
+            })
         })
         .then(res => res.json())
         .then(data => this.setData(data))
@@ -64,8 +72,6 @@ class PipelineStore {
     }
 
     
-
-
     run = (pipeline) => {
         
         runPipelineStore.setPipeline(pipeline)

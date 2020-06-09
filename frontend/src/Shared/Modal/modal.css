@@ -4,23 +4,177 @@
     left: 0;
     width:100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
   }
   
   .modal-main {
     position:fixed;
-    background: white;
-    width: 80%;
-    height: auto;
+    width: 33%;
+    height: 80%;
     top:50%;
     left:50%;
     transform: translate(-50%,-50%);
   }
   
   .display-block {
-    display: block;
+    /* display: block; */
+    visibility: visible;
+    opacity: 1;
+    transition: all 0.2s ease-in;
   }
   
   .display-none {
-    display: none;
+    /* display: none; */
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.2s ease-in;
   }
+
+  .run-modal, .new-pipeline-modal{
+    background: white;
+    border-radius: 5px;
+    display: grid;
+    grid-template-rows: 80% 20%;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0px 5px 10px var(--fa-primary-color);
+    padding: 2rem;
+  }
+
+
+  .new-pipeline-modal div:nth-child(1){
+    grid-row: 1;
+  }
+
+  .new-pipeline-column-grid{
+    overflow: auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 15% 70% 15%;
+    margin: 2rem 0;
+  }
+
+
+  .new-pipeline-column-grid div{
+    grid-column: 2;
+    width: 100%;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    transition: all 0.3s ease-in;
+    cursor: pointer;
+
+  }
+
+  .new-pipeline-column-grid div:hover,.new-pipeline-column-grid div.green-higlight {
+    background-color: #e4ffe3;
+  }
+
+  .modal-actions{
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .run.btn{
+    margin-left: 1rem;
+    height: 3rem;
+    width: 5rem;
+    border-radius: 5px;
+  }
+
+  .close.btn{
+    background: none;
+    height: 3rem;
+    width: 5rem;
+    border-radius: 5px;
+    margin-left: 1rem;
+    color: var(--fa-primary-color);
+  }
+
+  .close.btn:hover{
+    background-color: #cfffcc;
+  }
+
+  textarea{
+    outline: none;
+    border: 1px solid var(--fa-primary-color);
+    border-radius: 5px;
+    resize: none;
+    overflow: auto;
+    height: 10rem;
+    width: 100%;
+    padding: 1rem;
+    
+  }
+
+   textarea::placeholder{
+    color: var(--text-primary);
+  }
+
+   textarea:focus, .shadow{
+    box-shadow: 0px 0px 5px var(--fa-primary-color);
+  }  
+
+  .label{
+    color: var(--fa-primary-color);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 1rem 0;
+  }
+
+  .revision{
+    border: 1px solid var(--fa-primary-color);
+    border-radius: 5px;
+    height: 3rem;
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 14px;
+    align-items: center;
+    display: flex;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+
+  .revision:not(.select-row) span:nth-child(2), .commits-item div:nth-child(1){
+    color: rgba(0, 0, 0, 0.8);
+    font-weight: 700;
+  }
+
+  .fa-circle, .commits-item{
+    color: var(--text-primary);
+  }
+
+  .select .options-container.commit{
+    width: 86%;
+    height: 20rem;
+  }
+
+  .select .select-row.commit{
+    height: 3.5rem;
+    width: 100%;
+    border-radius: 5px;
+    padding: 0.5rem;
+    font-size: 14px;
+    display: grid;
+    grid-template-columns: 7% 93%;
+    cursor: pointer
+  }
+
+  .select-row.commit span:nth-child(1){
+    grid-column: 1;
+    font-size: 16px;
+  }
+
+  .select-row.commit span:nth-child(2){
+    display: flex;
+    flex-direction: column;
+    grid-column: 2;
+    justify-content: space-between;
+  }
+
+
+  

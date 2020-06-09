@@ -1,15 +1,72 @@
 .section{
-    border: 1px solid rgb(0, 84, 240);
     margin: 3px;
     padding: 3px;
     float: left;
 }
 
-.border-glow{
+.border-glow-red{
     box-shadow: 0 0 5px rgb(247, 55, 55);
     border: 1px solid rgb(247, 55, 55);
+}
+
+.border-glow-blue{
+    box-shadow: 0 0 5px rgb(0, 84, 240);
+    border: 1px solid rgb(0, 84, 240);
 }
 
 .selected{
     color: rgb(0, 84, 240)
 }
+
+.action-form-container{
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(10, 10%);
+}
+
+
+.action-form-container form{
+    grid-column: 3/9;
+    height: 80vh;
+    overflow: auto;
+    background-color: white;
+    border-radius: 5px;
+    border: 1px solid var(--fa-primary-color);
+    padding: 2.5rem 3rem 0 3rem;
+}
+
+.variables-container > div:first-child{
+    width: 100%;
+    display: grid;
+    grid-template-columns: 45% 45%;
+    /* gap: 2rem; */
+    /* flex-direction: column; */
+    justify-content: space-between;
+    align-items: center;
+}
+
+.add-btn{
+    height: fit-content;
+    width: fit-content;
+    padding: 0.5rem;
+    color: var(--fa-primary-color);
+    cursor: pointer;
+    border-radius: 5px;
+    margin-left: auto;
+    transition: all 0.3s ease-out;
+}
+
+.add-btn:hover{
+    background-color: #cfffcc;;
+}
+
+.action-form-container > form > span{
+    color: var(--fa-primary-color);
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+.action-form-container > form > span:hover{
+    text-decoration: underline;
+}
+

@@ -1,4 +1,5 @@
 import { observable, action } from 'mobx';
+import React from 'react'
 import user from '../Stores/UserStore'
 import pipelineStore from './PipelineStore';
 import routeStore from './RouteStore'
@@ -12,6 +13,7 @@ class PipelineFormStore {
         name:'',
         trigger_mode:'',
         branch:'master',
+        workdir:'/',
         emailing:false,
         cron_date:'* * * * *',
         email_time:'ON_EVERY_EXECUTION',
@@ -22,11 +24,66 @@ class PipelineFormStore {
         docker_repository:''
     }
 
+    branchesContainerRef = React.createRef()
+    emailingRef = React.createRef()
+
 	@observable data = this.default_data
     @observable branches = []
     @observable errorText = ''
+    @observable showModal = false
+    @observable project = null
+    @observable allowValue = {};
+
+    @action openModal = () => {
+        this.showModal = true
+    }
+
+    @action closeModal = () => {
+        this.showModal = false
+    }
+
+    @action showBranches = () =>{
+        this.branchesContainerRef.current.classList.toggle("show")
+    }
+
+    @action showEmailTimes = (e) =>{
+        e.stopPropagation()
+        this.emailingRef.current.classList.toggle("show")
+    }
+
     
-    submit = async (e) => {
+    @action setProject = (project) => {
+        this.project = project
+    }
+
+    @action selectBranch = (branch) => {
+        this.data.branch = branch
+        this.branchesContainerRef.current.classList.toggle("show")
+    }
+
+    @action selectEmailTime = (time) => {
+        this.data.email_time = time
+        this.emailingRef.current.classList.toggle("show")
+    }
+
+    @action selectTriggerMode = (mode) => {
+        this.data.trigger_mode = mode
+        if(this.data.trigger_mode !== 'RECURRENT'){
+            delete this.allowValue.cron_date
+        }
+    }
+
+    @action go = () => {
+        if(this.project){
+
+            routeStore.push("/pipeline/create")
+            pipelineFormStore.getBranches()
+            this.closeModal()
+            projectStore.setProject(this.project)
+        }
+    }
+    
+    @action submit = async (e) => {
         e.preventDefault()
 
         const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/create`,{
@@ -37,7 +94,7 @@ class PipelineFormStore {
             },
             body: JSON.stringify({
                 ...this.data, 
-                project_id:projectStore.currentProject._id, 
+                project_id:this.project._id, 
                 workspace_id:workspaceStore.currentWorkspace._id
             })
         })
@@ -51,7 +108,7 @@ class PipelineFormStore {
             this.data = this.default_data
             pipelineStore.getPipelines()
             pipelineStore.selectPipeline(data.pipeline)
-            routeStore.push(`/project/${projectStore.currentProject.name}/pipelines`)
+            routeStore.push(`/project/${this.project.name}/pipelines`)
         }
                                 
     }
@@ -68,7 +125,7 @@ class PipelineFormStore {
                 'Authorization':`Bearer ${user.token}`,
                 'Content-type':'application/json'
             },
-            body: JSON.stringify({project_id: projectStore.currentProject._id})
+            body: JSON.stringify({project_id:this.project._id})
         })
         
         const data = await result.json()
@@ -80,7 +137,6 @@ class PipelineFormStore {
             this.branches = data.branches
         }
     }
-
 
 }
 

@@ -11,7 +11,6 @@ class WorkspaceStore {
 
 
 	@action setData({workspaces}) {
-		console.log(workspaces)
 		this.workspaces = workspaces;
 
 		let workspace_id = storage.get('ora.ci_workspace')
