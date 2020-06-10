@@ -47,6 +47,7 @@ const actionSchema = mongoose.Schema({
     ora_list_id_on_failure: Number,
     shell_script:Boolean,
     script_file_id:String,
+    duration: Date
     
 })
 

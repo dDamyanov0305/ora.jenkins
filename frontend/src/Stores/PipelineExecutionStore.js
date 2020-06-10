@@ -11,6 +11,7 @@ class PipelineExecutionStore {
     @observable pipeline_executions = [];
     @observable selected_execution;
     @observable action_executions = []
+    @observable showModal = false
 
 
 	@action setPipelineExecutions({pipeline_executions}) {
@@ -19,13 +20,19 @@ class PipelineExecutionStore {
     }
     
     @action setActionExecutions({action_executions}) {
+        console.log(action_executions)
 		this.action_executions = action_executions;
     }
     
     @action selectExecution(execution){
         this.selected_execution = execution
         this.getActionExecutions()
-        routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
+        this.showModal = true
+        //routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
+    }
+
+    @action closeModal = () => {
+        this.showModal = false
     }
 
     rerun = (execution) => {

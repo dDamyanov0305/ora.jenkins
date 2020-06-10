@@ -157,7 +157,7 @@ router.post('/pipelines/run', [auth, check_permission], async(req, res) => {
         const project = await Project.findById(pipeline.project_id)
         const email_recipients = await Promise.all(project.assigned_team.map(async(id) => (await User.findById(id)).email))
         console.log("emails",email_recipients)
-        pipeline.run({ 
+        const pipeline_execution = await pipeline.run({ 
             user_id: req.user._id, 
             trigger_mode: triggerModes.MANUAL, 
             comment,
@@ -167,7 +167,7 @@ router.post('/pipelines/run', [auth, check_permission], async(req, res) => {
             email_recipients
         })
 
-        res.status(200).send()     
+        res.status(200).json({pipeline_execution})     
     }
     catch(error){
         console.log(error)

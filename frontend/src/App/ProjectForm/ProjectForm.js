@@ -54,8 +54,8 @@ const RepositoryList = observer(() =>
                 {repo.name}
             </div>
         )}
-        <div class="badge-full">Organization</div>
-        {providerStore.organization_repos.map(repo => <button key={repo.name} onClick={()=>providerStore.selectRepo(repo)}>{repo.name}</button>)}
+        {/* <div class="badge-full">Organization</div>
+        {providerStore.organization_repos.map(repo => <button key={repo.name} onClick={()=>providerStore.selectRepo(repo)}>{repo.name}</button>)} */}
 
     </div>
 )

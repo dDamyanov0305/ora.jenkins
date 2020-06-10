@@ -15,7 +15,7 @@ const Login = observer(()=>
                         <i class="fas fa-at"></i>
                     </div>
                     <div class="div">
-                        <h5>Username</h5>
+                        <h5>Email</h5>
                         <input 
                             type="text" 
                             name="email" 

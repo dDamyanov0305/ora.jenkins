@@ -14,8 +14,10 @@ class UserStore {
 		this.token = storage.get('ora.ci_token');
 		console.log(this.token)
 		if (this.token) {
-			this.getMe(true)
+			routeStore.push('/projects')
+			this.getMe()
 		}else{
+			routeStore.push('/login')
 			storage.remove('ora.ci_workspace')
 		}
 
@@ -51,7 +53,7 @@ class UserStore {
 		this.integrations = integrations
 		storage.set('ora.ci_token', token);
 		workspaceStore.getWorkspaces()
-		routeStore.push('/projects')
+		//routeStore.push('/projects')
 	}
 
 	@action addIntegration(integration){

@@ -8,7 +8,6 @@
     border-radius: 5px;
     padding: 1rem;
     border: 1px solid var(--fa-primary-color);
-    /* box-shadow: 0px 10px 20px #cfffcc; */
     box-shadow: 0px 5px 10px var(--fa-primary-color);
 }
 
@@ -19,6 +18,7 @@
 
 .pipelines-container table tr{
     cursor: pointer;
+    display: table-row;
 }
 
 .pipelines-container table tr:hover b {
@@ -37,6 +37,7 @@
     align-items: center;
     justify-content: center;
     border-top: 1px solid lightgrey;
+    
 }
 
 .pipelines-container td:last-child {

@@ -36,13 +36,15 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         commands = 'chmod +x /bin/execute_script.sh && /bin/execute_script.sh'
     }else{
         commands = this.execute_commands.join(" && ")
-    }
+	}
+	
+	const start = new Date()
 
     const exec = await container.exec({
         AttachStdin: false,
         AttachStdout: true,
         AttachStderr: true,
-        Tty: false,
+        Tty: true,
         Env: env,
         Cmd: ['/bin/bash', '-c', commands]
     })
@@ -75,16 +77,40 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         await action_execution.save()
 	})
 	
-    stream2.pipe(writestream)
+	stream2.pipe(writestream)
+	
+	setTimeout(async()=>{
+		const res = await exec.inspect()
+		if(res.Running){
+			await container.kill()
+			// const duration = (new Date()).getTime() - start.getTime()
+			// action_execution.duration = new Date(duration)
+			action_execution.status = executionStatus.TERMINATED
+            await action_execution.save()
+			pipeline_execution.status = action_execution.status
+            await pipeline_execution.save()
+        
+            task_action({pipeline, action:this, pipeline_execution})
+            resolve(action_execution.status)
+		}
+	},1000*60*25)
 
     return new Promise((resolve, reject) => 
     {
         try{   
             stream.on('end', async () => 
             {
-                if(action_execution.status === executionStatus.INPROGRESS){
-                    action_execution.status = executionStatus.SUCCESSFUL
-                }
+				const res = await exec.inspect()
+				
+				console.log("STATUS CODE: ",res)
+                if(res.ExitCode !== 0 ){
+					action_execution.status = executionStatus.FAILED
+					
+				}
+
+                // if(action_execution.status === executionStatus.INPROGRESS){
+                //     action_execution.status = executionStatus.SUCCESSFUL
+                // }
                 await action_execution.save()
     
                 pipeline_execution.status = action_execution.status

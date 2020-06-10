@@ -140,7 +140,6 @@ router.post('/github/repo/commits', auth, async (req, res) => {
     else{
         const data = await result.json()
         const commits = data.map(commit => ({sha:commit.sha , message: commit.commit.message}))
-        console.log(commits)
         res.status(200).json({commits})
     }
 })

@@ -16,7 +16,7 @@ class ProviderStore {
         },
         {
             name: 'GITLAB',
-            integrationURL: `https://gitlab.com/oauth/authorize?client_id=${process.env.REACT_APP_GITLAB_OAUTH_CLIENT_ID}&redirect_uri=${process.env.REACT_APP_REDIRECT_URI}&response_type=code&scope=api read_user read_api read_repository write_repository email`,
+            integrationURL: `https://gitlab.com/oauth/authorize?client_id=${process.env.REACT_APP_GITLAB_OAUTH_CLIENT_ID}&redirect_uri=${process.env.REACT_APP_REDIRECT_URI}&response_type=code&scope=api read_user read_api read_repository email`,
         },
         {
             name: 'BITBUCKET',

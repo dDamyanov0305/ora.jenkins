@@ -21,6 +21,7 @@ async function build_image({remote, t, pipeline_execution}){
             const image = docker.getImage(t)
 
             if(image){
+                console.log("IMAGE BUILT")
                 resolve(image)
             }else{
                 pipeline_execution.status = executionStatus.FAILED
@@ -38,6 +39,7 @@ async function test_image({image, config, pipeline, pipeline_execution}){
     const { trigger_mode, comment, revision, executor, email_recipients, user_id } = config
     const { _id, emailing, name  } = pipeline
 
+    
     //create pipeline execution
     // const pipeline_execution = new PipelineExecution({  
     //     pipeline_id: _id, 
@@ -54,8 +56,8 @@ async function test_image({image, config, pipeline, pipeline_execution}){
 
     const container = await docker.createContainer({ AttachStdin: false, AttachStdout: true, AttachStderr: true, Tty: true, Image: image.name })
     await container.start()
-
-    for(action of actions){
+    console.log(actions)
+    for(action of actions){console.log("vliza")
         let status = await action.execute({pipeline, pipeline_execution, container})
         console.log("STATUS: ", status)
     }
@@ -87,7 +89,7 @@ async function send_emails({email_recipients, pipeline_execution, index, name}){
         to: email_recipients.join(','),
         subject: `Execution #${index} for pipeline ${name}`, 
         text: `status: ${pipeline_execution.status}`,
-        html: `<a href="http://localhost:3000/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
+        // html: `<a href="http://localhost:3000/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
     })
 
     console.log(info)
@@ -169,8 +171,9 @@ module.exports.run = async function(args){
         status:executionStatus.INPROGRESS 
     })
 
+    console.log("EXECUTION")
+
     let t = push_image ? `${docker_repository}:${docker_image_tag}` : 'default_tag'
-    // let remote = `https://${integration.token}@github.com/${project.repository}.git#${revision.split('/')[0]}:${workdir}`
     let remote = `https://${integration.token}@github.com/${project.repository}.git#${revision.sha}:${workdir}`
 
     const image = await build_image({remote, t, pipeline_execution})
@@ -179,8 +182,11 @@ module.exports.run = async function(args){
 
     if(push_image && status === executionStatus.SUCCESSFUL)
     {
-        push_img(image,{username:docker_user, password:docker_password},)
+        await push_img(image,{username:docker_user, password:docker_password},)
     }
+
+
+    return pipeline_execution
     
 }
 
@@ -207,8 +213,12 @@ module.exports.getActionExecutions = async function(pipeline_id, pipeline_execut
 
     const action_executions = actions.map(async(action)=>{
 
+        
         let ax = await ActionExecution.findOne({action_id: action._id, execution_id: pipeline_execution_id})
-        let log = await ax.getlog(ax.log_id)
+        let log = null
+        if(ax.log_id){
+            log = await ax.getlog(ax.log_id)
+        }
         return { ...ax.toObject(), log, action }
     })
     let res = await Promise.all(action_executions)
@@ -276,8 +286,9 @@ module.exports.create_cron_job = async function({pipeline, token, cron_date}){
 
     for(let i of cron_arr){
 
-        if(i!= '*' || (i<"0" || i>"9")&&i!='/'){
-            throw new Error("invalid cron date")
+        if(i!== '*' && (i<"0" || i>"9")&&i!=='/'){
+            console.log(i+'|')
+            throw new Error("invalid cron date characters")
         }
     }
 

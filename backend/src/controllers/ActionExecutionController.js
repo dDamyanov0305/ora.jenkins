@@ -3,7 +3,7 @@ const gfsPromise = require('../db/db')
 module.exports.getlog = async function(log_id){
 
     const gfs = await gfsPromise
-    let readstream = gfs.createReadStream({_id: log_id});
+    let readstream = await gfs.createReadStream({_id: log_id});
 
     let data = "";
 

@@ -18,6 +18,7 @@ import { AuthCallback, auth_done } from './AuthCallback/AuthCallback';
 import ActionsPanel from './ActionsPanel/ActionsPanel';
 import ExecutionsPanel from './ExecutionsPanel/ExecutionsPanel';
 import Layout from './Layout/Layout'
+import storage from '../Services/perfectLocalStorage';
 import './App.css'
 
 
@@ -26,12 +27,15 @@ const App = (props) => {
   const { history, location } = props
   routeStore.update(history, location)
   window.auth_done = auth_done
+  
+
 
   if(!user.loggedIn && 
     routeStore.pathname !== '/login' && 
     routeStore.pathname !== '/register' && 
-    !routeStore.pathname.includes("/oauth/callback")
-  ){
+    !routeStore.pathname.includes("/oauth/callback") &&
+    !storage.get('ora.ci_token')
+    ){
     routeStore.push('/login');
   }
   
