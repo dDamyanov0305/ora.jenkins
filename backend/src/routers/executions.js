@@ -12,13 +12,11 @@ const check_permission = require('../middleware/check_permission')
 
 router.post('/executions/all', [auth, check_permission], async(req, res) => {
 
-    
     try{
         const projects = await Project.find({assigned_team: req.user.id})
         const pipelines = await Promise.all(projects.map(async(project) => await Pipeline.find({project_id: project._id})))
         const pipeline_executions = await Promise.all(pipelines.map(async(pipeline) => await PipelineExecution.find({pipeline_id:pipeline._id})))
         const sorted = pipeline_executions.sort((a, b) => b.date.getTime() - a.date.getTime())
-        console.log(pipelines)
         res.status(200).json({pipeline_executions: sorted})
     }
     catch(error){

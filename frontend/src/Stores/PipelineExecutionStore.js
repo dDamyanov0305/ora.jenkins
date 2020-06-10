@@ -14,6 +14,7 @@ class PipelineExecutionStore {
 
 
 	@action setPipelineExecutions({pipeline_executions}) {
+        console.log(pipeline_executions)
 		this.pipeline_executions = pipeline_executions;
     }
     
@@ -25,6 +26,23 @@ class PipelineExecutionStore {
         this.selected_execution = execution
         this.getActionExecutions()
         routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${pipelineStore.currentPipeline.name}/executions/${execution._id}`)
+    }
+
+    rerun = (execution) => {
+        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/run`,{
+            method:'POST',
+            headers:{
+                'Authorization':`Bearer ${user.token}`,
+                'Content-type':'application/json'
+            },
+            body:JSON.stringify({
+                workspace_id:workspaceStore.currentWorkspace._id, 
+                pipeline_id:execution.pipeline_id,
+                comment:execution.comment,
+                revision:execution.revision,
+                trigger_mode:"MANUAL"
+            })
+        })
     }
 
     getPipelineExecutions = () => {

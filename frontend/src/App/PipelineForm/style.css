@@ -58,9 +58,25 @@
     width: 25%;
     padding: 0.5rem;
     font-size: 1rem;
-    color: rgb(173, 173, 173) ;
+    color: rgb(173, 173, 173) ;   
+}
 
-    
+
+td > .radio-option{
+  width: fit-content;
+  font-size: small;
+  text-transform: lowercase;
+  border: 1px solid rgb(173, 173, 173);
+    display: flex;
+    height: 1.6rem;
+    border-radius: 4px;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 0.5rem
+}
+
+td > .radio-option > span{
+  margin-left: 0.3rem;
 }
 
 .radio-option.clicked{

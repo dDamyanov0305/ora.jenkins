@@ -140,6 +140,7 @@ class ActionFormStore {
     }
 
     @action handleChange = (e) => {
+        console.log(this.data[e.target.name])
         this.data[e.target.name] = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     }
 

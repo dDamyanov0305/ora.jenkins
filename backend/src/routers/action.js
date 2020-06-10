@@ -79,8 +79,7 @@ router.post('/actions/create', [auth, check_permission], async(req, res) => {
             await next_action.save()
         }
 
-        if(JSON.parse(shell_script))
-        {
+        if(JSON.parse(shell_script)){
             ActionController.save_shell_script(req.files.execute_script.data)
         }
 

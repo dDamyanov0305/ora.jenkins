@@ -73,7 +73,6 @@ router.get('/github/repos', auth, async (req, res) => {
         }
     })).json()).map(org => org.login)
 
-    console.log(orgs_names)
 
     for(const name of orgs_names){
 
@@ -87,8 +86,6 @@ router.get('/github/repos', auth, async (req, res) => {
         organization_repos.push(org_repo)
     }
 
-
-   console.log(organization_repos)
     res.status(200).json({personal_repos, organization_repos})
     
 })
@@ -142,7 +139,6 @@ router.post('/github/repo/commits', auth, async (req, res) => {
     }
     else{
         const data = await result.json()
-        // const commits = data.map(commit => `${commit.sha}/${commit.commit.message}`)
         const commits = data.map(commit => ({sha:commit.sha , message: commit.commit.message}))
         console.log(commits)
         res.status(200).json({commits})

@@ -11,7 +11,11 @@ router.post('/users/create', async (req, res) => {
 
     try {
 
-        if(password.lenght < 5)
+        if(!name || !email){
+            throw new Error("fill all fields")
+        }
+
+        if(!password || password.lenght < 5)
             throw new Error("Your password must be at least 5 characters long.")
 
 
@@ -38,6 +42,7 @@ router.post('/users/create', async (req, res) => {
         res.status(201).json({user, token, integrations})
     } 
     catch (error) {
+        console.log(error)
         res.status(500).json({error:error.message})
     }
 })
@@ -52,15 +57,21 @@ router.post('/users/login', async(req, res) => {
 
         const integrations = await Integration.find({ user_id: user._id })
 
-        res.json({user, token, integrations})
+        res.status(200).json({user, token, integrations})
     } catch (error) {
+        console.log(error)
         res.status(500).json({error:error.message})
     }
 })
 
 router.get('/users/me', auth, async(req, res) => {
-    const integrations = await Integration.find({ user_id: req.user._id })
-    res.json({user:req.user, token: req.token, integrations})
+    try{
+        const integrations = await Integration.find({ user_id: req.user._id })
+        res.status(200).json({user:req.user, token: req.token, integrations})
+    }catch(error){
+        console.log(error)
+        res.status(500).json({error:error.message})
+    }
 })
 
 router.post('/users/me/logout', auth, async (req, res) => {
@@ -69,6 +80,7 @@ router.post('/users/me/logout', auth, async (req, res) => {
         await req.user.save()
         res.send()
     } catch (error) {
+        console.log(error)
         res.status(500).json({error:error.message})
     }
 })
@@ -79,15 +91,10 @@ router.post('/users/me/logoutall', auth, async(req, res) => {
         await req.user.save()
         res.send()
     } catch (error) {
+        console.log(error)
         res.status(500).json({error:error.message})
     }
 })
-
-router.get('/users/all', async (req, res) => {
-    const users = await User.find({})
-    res.status(200).json({users})
-})
-
 
 router.delete('/users', auth, async (req, res) => {
 
@@ -96,7 +103,7 @@ router.delete('/users', auth, async (req, res) => {
     try{
         const user = await User.findById(user_id)
         let del = user.delete()
-        res.status(200).send(del)
+        res.status(200).json({data:del})
     }
     catch(error){
         console.log(error)

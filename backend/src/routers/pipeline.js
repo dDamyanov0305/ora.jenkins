@@ -1,13 +1,15 @@
 const express = require('express')
 const router = express.Router()
-const auth = require('../middleware/auth')
 const Pipeline = require('../models/Pipeline')
 const Action = require('../models/Action')
 const Project = require('../models/Project')
 const User = require('../models/User')
 const PipelineExecution = require('../models/PipelineExecution')
 const PipelineController = require('../controllers/PipelineController')
-const { triggerModes } = require('../constants')
+const Integration = require('../models/Integration')
+const { triggerModes, integrationTypes } = require('../constants')
+const fetch = require('node-fetch')
+const auth = require('../middleware/auth')
 const check_permission = require('../middleware/check_permission')
 
 router.post('/pipelines/all', [auth, check_permission], async(req, res) => {
@@ -15,8 +17,15 @@ router.post('/pipelines/all', [auth, check_permission], async(req, res) => {
     const { project_id } = req.body
 
     try{
-        const pipelines = await Pipeline.find({ project_id })
-        res.status(200).json({pipelines})
+        const pipelines = await Pipeline.find({ project_id }, {}, { sort: { create_date : -1 }})
+        const final_pipelines = pipelines.map(async(pipeline)=>{
+            const hasActions = await Action.exists({pipeline_id:pipeline._id})
+            const last_exec = await PipelineExecution.findOne({pipeline_id:pipeline._id},{},{ sort: { date : -1 }})
+            return {...pipeline.toObject(),hasActions, last_exec: last_exec ? last_exec.toObject() : null}
+        })
+
+        const resp = await Promise.all(final_pipelines)
+        res.status(200).json({pipelines:resp})
     }
     catch(error){
         console.log(error)
@@ -50,8 +59,6 @@ router.post('/pipelines/:pipeline_id/webhook-trigger', async(req, res) => {
 
     if(req.header("X-GitHub-Event") === 'push'){
 
-        console.log(req.params)
-
         try{
             const { pipeline_id } = req.params
             const { head_commit, commits, ref} = req.body
@@ -74,9 +81,9 @@ router.post('/pipelines/:pipeline_id/webhook-trigger', async(req, res) => {
             })
     
             pipeline.run({ 
-                triggerMode:triggerModes.PUSH, 
+                trigger_mode:triggerModes.PUSH, 
                 comment:message, 
-                revision:id, 
+                revision:{sha:id, message}, 
                 executor: author.email,
                 email_recipients,
                 project,
@@ -104,25 +111,42 @@ router.post('/pipelines/:pipeline_id/cron-trigger', async(req, res) => {
     const executor = await User.findById(pipeline.creator_id)
     const email_recipients = await Promise.all(project.assigned_team.map(async(id) => (await User.findById(id)).email))
 
-    console.log(email_recipients)
+    const integration = await Integration.findOne({user_id: pipeline.creator_id, type: integrationTypes.GITHUB})
 
-    pipeline.run({ 
-        triggerMode:triggerModes.RECCURENTLY, 
-        comment:`Scheduled run for pipeline ${pipeline.name}`, 
-        revision: pipeline.branch, 
-        executor: executor.email, 
-        email_recipients,
-        project,
-        user_id:executor._id  
-    })    
-    res.status(202).send()
+    if(!integration){
+        res.status(400).json({error:'Not integrated with selectet hosting provider.'})
+    }
+
+    const result = await fetch(`https://api.github.com/repos/${project.repository}/commits?sha=${pipeline.branch}`,{
+        headers:{
+            "Content-type": "application/json",
+            "Authorization": "token " + integration.token
+        }
+    })
+
+    if(result.status <200 || result.status >= 300){
+        res.status(result.status).json({error:"github server error"})
+    }else{
+        const commits = await result.json()
+
+        pipeline.run({ 
+            trigger_mode:triggerModes.RECCURENTLY, 
+            comment:`Scheduled run for pipeline ${pipeline.name}`, 
+            revision: {sha:commits[0].sha, message:commits[0].commit.message}, 
+            executor: executor.email, 
+            email_recipients,
+            project,
+            user_id:executor._id  
+        })    
+        res.status(202).send()
+    }
+
 
 })
 
 router.post('/pipelines/run', [auth, check_permission], async(req, res) => {
 
     const { pipeline_id, comment, revision } = req.body
-    console.log(req.body)
 
     try{
         const pipeline = await Pipeline.findById(pipeline_id)
@@ -135,7 +159,7 @@ router.post('/pipelines/run', [auth, check_permission], async(req, res) => {
         console.log("emails",email_recipients)
         pipeline.run({ 
             user_id: req.user._id, 
-            triggerMode: triggerModes.MANUAL, 
+            trigger_mode: triggerModes.MANUAL, 
             comment,
             executor: req.user.email, 
             revision,
@@ -169,8 +193,6 @@ router.post('/pipelines/create', [auth, check_permission], async(req, res) => {
         workdir,
     } = req.body
 
-    console.log(req.body)
-
     try{
         const pipeline = new Pipeline({ 
             name, 
@@ -186,6 +208,7 @@ router.post('/pipelines/create', [auth, check_permission], async(req, res) => {
             workdir
         })
 
+
         const project = await Project.findById(project_id)
         
         if(!pipeline || !project){
@@ -197,13 +220,12 @@ router.post('/pipelines/create', [auth, check_permission], async(req, res) => {
         }
 
         if(trigger_mode === triggerModes.PUSH){
-            PipelineController.create_hook({project, pipeline, user_id: req.user._id})
+            await PipelineController.create_hook({project, pipeline, user_id: req.user._id})
         }
         else if(trigger_mode === triggerModes.RECCURENTLY){
-            PipelineController.create_cron_job({pipeline, token: req.token, cron_date})
+            await PipelineController.create_cron_job({pipeline, token: req.token, cron_date})
         }
 
-        console.log(pipeline)
         await pipeline.save()
         res.status(201).json({pipeline})
         
@@ -234,7 +256,7 @@ router.post('/pipelines/executions', [auth, check_permission], async(req, res) =
     const { pipeline_id } = req.body
 
     try{
-        const pipeline_executions = await PipelineExecution.find({pipeline_id})
+        const pipeline_executions = await PipelineExecution.find({pipeline_id}, {}, {sort:{date:-1}})
         res.status(200).json({pipeline_executions})
     }
     catch(error){

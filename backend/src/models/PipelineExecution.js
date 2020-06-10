@@ -19,7 +19,7 @@ const pipelineExecutionSchema = mongoose.Schema({
         require: true
     },
     comment:String,
-    trigger:{ 
+    trigger_mode:{ 
         type:String,
         enum: Object.values(triggerModes)
     },
@@ -27,7 +27,10 @@ const pipelineExecutionSchema = mongoose.Schema({
         type: String,
         require: true
     },
-    revision: String,
+    revision: {
+        sha:String,
+        message:String
+    },
     date:{
         type: Date,
         default: Date.now()

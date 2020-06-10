@@ -19,7 +19,7 @@ const ProjectCard = observer(({project}) => (
             <p>{project.name}</p> 
             {/* <button onClick={() => projectStore.delete(project)}>delete</button>  */}
         </div>
-        <p className="small">2 pipelines</p>
+        <p className="small">{project.pipelinesCount} pipelines</p>
     </div>
 ))
 

@@ -9,24 +9,23 @@ const transporter = require('../transporter')
 const { triggerModes, executionStatus, emailConditions} = require('../constants')
 const fetch = require('node-fetch')
 
-async function build_image({remote, t}){
+async function build_image({remote, t, pipeline_execution}){
 
-    console.log("REMOTE: ",remote, "TAG: ", t)
     const stream = await docker.buildImage(null,{remote, t})
-    console.log('build started')
 
     return new Promise((resolve, reject)=>{
-        stream.on('data', data => console.log(data.toString()))
-        stream.on('error', () => reject())
+        stream.on('data', data => console.log(data))
+        stream.on('error', () => reject("build error"))
         stream.on('end', async() => {
 
             const image = docker.getImage(t)
 
             if(image){
-                console.log('image built')
                 resolve(image)
             }else{
-                reject()
+                pipeline_execution.status = executionStatus.FAILED
+                await pipeline_execution.save()
+                reject("no image")
             }
  
         })
@@ -34,47 +33,42 @@ async function build_image({remote, t}){
    
 }
 
-async function test_image(image, config, pipeline){
+async function test_image({image, config, pipeline, pipeline_execution}){
 
-    const { triggerMode, comment, revision, executor, email_recipients, user_id } = config
+    const { trigger_mode, comment, revision, executor, email_recipients, user_id } = config
     const { _id, emailing, name  } = pipeline
 
-    console.log('testing started')
-
     //create pipeline execution
-    const pipeline_execution = new PipelineExecution({  
-        pipeline_id: _id, 
-        user_id,
-        triggerMode, 
-        comment, 
-        revision, 
-        executor,
-        status:executionStatus.INPROGRESS 
-    })
+    // const pipeline_execution = new PipelineExecution({  
+    //     pipeline_id: _id, 
+    //     user_id,
+    //     trigger_mode, 
+    //     comment, 
+    //     revision, 
+    //     executor,
+    //     status:executionStatus.INPROGRESS 
+    // })
 
-    //get actions
     const index = await PipelineExecution.find({pipeline_id: _id}).where('date').lte(pipeline_execution.date).countDocuments()
     const actions = await module.exports.getActionsForPipeline(_id)
 
-    //start container
     const container = await docker.createContainer({ AttachStdin: false, AttachStdout: true, AttachStderr: true, Tty: true, Image: image.name })
     await container.start()
 
-    //start secuential actions execution
     for(action of actions){
         let status = await action.execute({pipeline, pipeline_execution, container})
         console.log("STATUS: ", status)
     }
     
-    //send emails
     if(emailing == emailConditions.ON_EVERY_EXECUTION || 
         (emailing == emailConditions.ON_SUCCESS && pipeline_execution.status == executionStatus.SUCCESSFUL) ||
         (emailing == emailConditions.ON_FAILURE && pipeline_execution.status == executionStatus.FAILED)
     ){
         send_emails({email_recipients, pipeline_execution, index, name})
-
     }
 
+    await container.stop()
+    await container.remove()
     return pipeline_execution.status
     
 }
@@ -160,20 +154,32 @@ async function create_github_hook({pipeline, token, project}){
 
 module.exports.run = async function(args){
 
-    const { project, revision, user_id } = args
+    const { project, trigger_mode, comment, revision, executor, user_id } = args
+
     const { docker_user, docker_repository, docker_image_tag, docker_password, push_image, workdir } = this
     const integration = await Integration.findOne({user_id, type: integrationTypes.GITHUB})
 
-    let t = push_image ? `${docker_user}/${docker_repository}:${docker_image_tag}` : 'default_tag'
-    let remote = `https://${integration.token}@github.com/${project.repository}.git#${revision.split('/')[0]}:${workdir}`
+    const pipeline_execution = new PipelineExecution({  
+        pipeline_id: this._id, 
+        user_id,
+        trigger_mode, 
+        comment, 
+        revision, 
+        executor,
+        status:executionStatus.INPROGRESS 
+    })
 
-    const image = await build_image({remote, t})
+    let t = push_image ? `${docker_repository}:${docker_image_tag}` : 'default_tag'
+    // let remote = `https://${integration.token}@github.com/${project.repository}.git#${revision.split('/')[0]}:${workdir}`
+    let remote = `https://${integration.token}@github.com/${project.repository}.git#${revision.sha}:${workdir}`
+
+    const image = await build_image({remote, t, pipeline_execution})
     
-    const status = await test_image(image, args, this)
+    const status = await test_image({image, config:args, pipeline:this, pipeline_execution})
 
     if(push_image && status === executionStatus.SUCCESSFUL)
     {
-        push_img(image,{username:docker_user, password:docker_password})
+        push_img(image,{username:docker_user, password:docker_password},)
     }
     
 }
@@ -262,6 +268,19 @@ module.exports.create_cron_job = async function({pipeline, token, cron_date}){
 
     pipeline.cron_date = cron_date
 
+    const cron_arr=cron_date.split(" ")
+
+    if(cron_arr.length != 5){
+        throw new Error("invalid cron date")
+    }
+
+    for(let i of cron_arr){
+
+        if(i!= '*' || (i<"0" || i>"9")&&i!='/'){
+            throw new Error("invalid cron date")
+        }
+    }
+
     const setup_commands = [
         'apt-get update && apt-get install -y cron && apt-get install -y curl',
         'touch /etc/cron.d/cron-job',
@@ -270,6 +289,7 @@ module.exports.create_cron_job = async function({pipeline, token, cron_date}){
         'crontab /etc/cron.d/cron-job',
         'cron'
     ].join(' && ')
+
 
 
     const container = await docker.createContainer({

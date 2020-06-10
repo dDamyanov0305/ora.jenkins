@@ -3,12 +3,19 @@ const router = express.Router()
 const auth = require('../middleware/auth')
 const check_permission = require('../middleware/check_permission')
 const Project = require('../models/Project')
+const Pipeline = require('../models/Pipeline')
 
 router.post('/projects/all', [auth, check_permission], async(req, res) => {
 
     try{
         const projects = await Project.find({ workspace_id: req.workspace._id })
-        res.status(200).json({projects})
+        const final_projects = projects.map(async(project)=>{
+            const pipelinesCount = await Pipeline.countDocuments({project_id:project._id})
+            return {...project.toObject(), pipelinesCount}
+        })
+
+        const result = await Promise.all(final_projects)
+        res.status(200).json({projects: result})
     }
     catch(error){
         console.log(error)

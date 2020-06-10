@@ -57,8 +57,10 @@ const VariablesInput = observer(() =>
     <div>
         {actionFormStore.data.variables.map((v, index)=>
             <div class="variables-container">
+                <div>
                 <Input force value={actionFormStore.data.variables[index].key} onChange={(e)=>actionFormStore.updateKey(e,index)}/>
                 <Input force value={actionFormStore.data.variables[index].value} onChange={(e)=>actionFormStore.updateVal(e,index)}/>
+                </div>
             </div>
         )}
 
@@ -72,36 +74,65 @@ const VariablesInput = observer(() =>
     </div>
 )
 
-const computeClassName = (value) =>  `section ${actionFormStore.modalError === value ? "border-glow-red" : "border-glow-blue"}`
+const computeClassName = (value) =>  {
+	if(actionFormStore.modalError === value) {return "error"}
+	else{
+        switch(value){
+			case 1: return actionFormStore.data.ora_project_id && "ok"
+			case 2: return actionFormStore.data.ora_task_id && "ok"
+			case 3: return actionFormStore.data.ora_list_id_on_success && "ok"
+			case 4: return actionFormStore.data.ora_list_id_on_failure && "ok"
+		}
+	}
+}
 
 const TaskLinkageModal = observer(() => 
     <Modal show={actionFormStore.showModal}>
-        <div>
+        <div class="action-form-modal">
 
-        <div>
-            <div className={computeClassName(1)}>
-                <h4>select project</h4>
+        <div class="lists">
+            <div>
+				<div class={`title ${computeClassName(1)}`}>
+                    <h4>select project</h4>
+				</div>
+				<div class="content">
+
                 {actionFormStore.projects.map(project => 
-                    <p className={project.id === actionFormStore.data.ora_project_id && "selected"} onClick={() => actionFormStore.selectProject(project)}>{project.title}</p>)
+                    <div className={project.id === actionFormStore.data.ora_project_id && "selected"} onClick={() => actionFormStore.selectProject(project)}>{project.title}</div>)
                 }
+				</div>
             </div>
-            <div className={computeClassName(2)}>
-                <h4>select task</h4>
+            <div>
+			    <div  class={`title ${computeClassName(2)}`}>
+                    <h4>select task</h4>
+				</div>
+				<div class="content">
+
                 {actionFormStore.tasks.map(task => 
-                    <p className={task.id === actionFormStore.data.ora_task_id && "selected"} onClick={() => actionFormStore.selectTask(task)}>{task.title}</p>)
+                    <div className={task.id === actionFormStore.data.ora_task_id && "selected"} onClick={() => actionFormStore.selectTask(task)}>{task.title}</div>)
                 }
+				</div>
             </div>
-            <div className={computeClassName(3)}>
-                <h4>select list on success</h4>
+            <div>
+			    <div  class={`title ${computeClassName(3)}`}>
+                    <h4>select list on success</h4>
+				</div>
+				<div class="content">
+
                 {actionFormStore.lists.map(list => 
-                    <p className={list.id === actionFormStore.data.ora_list_id_on_success && "selected"} onClick={() => actionFormStore.selectOnSuccessList(list)}>{list.title}</p>)
+                    <div className={list.id === actionFormStore.data.ora_list_id_on_success && "selected"} onClick={() => actionFormStore.selectOnSuccessList(list)}>{list.title}</div>)
                 }
+				</div>
             </div>
-            <div className={computeClassName(4)}>
-                <h4>select list on failure</h4>
+            <div>
+			    <div  class={`title ${computeClassName(4)}`}>
+                    <h4>select list on failure</h4>
+				</div>
+				<div class="content">
                 {actionFormStore.lists.map(list => 
-                    <p className={list.id === actionFormStore.data.ora_list_id_on_failure && "selected"} onClick={() => actionFormStore.selectOnFailureList(list)}>{list.title}</p>)
+                    <div className={list.id === actionFormStore.data.ora_list_id_on_failure && "selected"} onClick={() => actionFormStore.selectOnFailureList(list)}>{list.title}</div>)
                 }
+				</div>
             </div>
         </div>
         <div class="modal-actions">

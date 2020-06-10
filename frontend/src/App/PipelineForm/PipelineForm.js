@@ -4,6 +4,7 @@ import loginRegisterStore from '../../Stores/LoginRegisterStore';
 import pipelineFormStore from '../../Stores/PipelineFormStore';
 import Input from '../../Shared/Input/Input'
 import './style.css'
+import pipelineStore from '../../Stores/PipelineStore';
 
 
 const PipelineForm = observer(() => 
@@ -22,6 +23,7 @@ const PipelineForm = observer(() =>
         </div>
     </div>
 )
+
 
 
 const TriggerModeRadio = observer(() => 

@@ -7,7 +7,9 @@
     background-color: white;
     border-radius: 5px;
     padding: 1rem;
-    box-shadow: 0px 10px 20px #cfffcc;
+    border: 1px solid var(--fa-primary-color);
+    /* box-shadow: 0px 10px 20px #cfffcc; */
+    box-shadow: 0px 5px 10px var(--fa-primary-color);
 }
 
 .pipelines-container table{
@@ -47,7 +49,7 @@
 
 .badge{
     display: flex;
-    width: 70%;
+    width: fit-content;
     height: 1.6rem;
     border-radius: 100px;
     align-items: center;
@@ -55,16 +57,27 @@
     padding: 0.5rem
 }
 
+.badge > span, .branch > span{
+   margin-left: 0.3rem;
+}
+
+.additions > svg{
+    margin-right: 0.5rem;
+}
+
+
+
 .branch{
     border: 1px solid var(--fa-primary-color);
     display: flex;
-    width: 70%;
+    width: fit-content;
     height: 1.6rem;
     border-radius: 4px;
     align-items: center;
     justify-content: space-evenly;
     padding: 0.5rem
 }
+
 
 .badge span{
     text-transform: uppercase;
@@ -137,5 +150,4 @@
 .comment-td{
     max-width: 7rem;
 }
-
 

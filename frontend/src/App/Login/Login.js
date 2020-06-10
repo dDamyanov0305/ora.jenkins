@@ -5,11 +5,11 @@ import './style.css'
 
 const Login = observer(()=>
     <div class="container">
-        <p>{loginRegisterStore.errorText}</p>
         <div class="login-content">
             <div>
             <form onSubmit={loginRegisterStore.submit}>
                 <h2>Welcome</h2>
+                <p>{loginRegisterStore.errorText}</p>
                 <div class="input-div one">
                     <div class="i">
                         <i class="fas fa-at"></i>

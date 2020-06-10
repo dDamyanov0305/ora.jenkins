@@ -80,7 +80,7 @@ class RunPipelineStore {
                 pipeline_id:this.pipeline._id,
                 comment:this.data.comment,
                 revision:this.data.revision,
-                triggerMode:"MANUAL"
+                trigger_mode:"MANUAL"
             })
         })
 

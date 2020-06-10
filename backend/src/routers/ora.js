@@ -62,8 +62,12 @@ router.get('/ora/projects', auth, async (req, res) => {
         headers:{"Authorization": "Bearer " + integration.token}
     })
 
+    
     if(result.status < 200 || result.status >= 300){
-        res.status(result.status).send()
+        // res.status(result.status).send()
+        let resp = await result.text()
+        console.log(resp)
+        res.json({projects:[], error:resp, status: result.status})
     }else{
         const data = await result.json()
         res.json({projects:data.data})

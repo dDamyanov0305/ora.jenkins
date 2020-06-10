@@ -3,9 +3,8 @@ import { observer } from 'mobx-react';
 import actionStore from '../../Stores/ActionStore';
 import actionFormStore from '../../Stores/ActionFormStore';
 import routeStore from '../../Stores/RouteStore';
-import './style.css'
-import { Link } from 'react-router-dom';
 import pipelineStore from '../../Stores/PipelineStore';
+import './style.css'
 
 
 const ActionsPanel = observer(() =>{
@@ -47,16 +46,19 @@ const ActionsPanel = observer(() =>{
             <i class="fas fa-cogs"></i>
         </div>
         {view}
+        <div class="final-actions">
+
         {pipelineStore.currentPipeline.push_image &&
         <div class="action">
-            docker Hub
+            docker hub
             <i class="fab fa-docker"></i>
         </div>}
-        {pipelineStore.currentPipeline.emailing &&
+        {pipelineStore.currentPipeline.emailing !=='NEVER' &&
         <div class="action">
             emailing
             <i class="fas fa-envelope-open-text"></i>
         </div>}
+        </div>
     </div>
     )
 

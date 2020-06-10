@@ -10,7 +10,7 @@ const archiver = require('archiver')
 const streamBuffers = require('stream-buffers');
 
 module.exports.execute = async function({ pipeline, pipeline_execution, container }){
-
+    const gfs = await gfsPromise 
     const action_execution = await ActionExecution.create({
         action_id: this._id,
         execution_id: pipeline_execution._id,
@@ -26,11 +26,11 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         return action_execution.status
     }
 
-    const env = this.variables.map(({key,value})=>`${key}=${value}`)
+	const env = this.variables.map(({key,value})=>`${key}=${value}`)
+	console.log(env)
     let commands
 
     if(this.shell_script){
-        const gfs = await gfsPromise
         const readstream = gfs.createReadStream({_id: this.script_file_id})
         await upload_script(container, readstream)
         commands = 'chmod +x /bin/execute_script.sh && /bin/execute_script.sh'
@@ -42,58 +42,50 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         AttachStdin: false,
         AttachStdout: true,
         AttachStderr: true,
-        Tty: true,
+        Tty: false,
         Env: env,
         Cmd: ['/bin/bash', '-c', commands]
     })
 
 
     action_execution.status = executionStatus.INPROGRESS
-    await action_execution.save()
+    // await action_execution.save()
     
     const stream = await exec.start()
     const stream2 = new ReadableStreamClone(stream);
     const outputStream = new Stream.Writable()
     const errorStream = new Stream.Writable()
-    const gfs = await gfsPromise 
+	const writestream = gfs.createWriteStream({ filename: 'log.txt' });
+	outputStream._write = (chunk, encoding, next) => {
+		console.log(chunk.toString())
+		next()
+	}
 
-    docker.modem.demuxStream(stream, outputStream, errorStream)
+	errorStream._write = async(chunk, encoding, next) => 
+	{
+		action_execution.status = executionStatus.FAILED		
+		console.log(chunk.toString())
+		next()
+	}
 
-    let writestream = gfs.createWriteStream({ filename: 'log.txt' });
-
+	docker.modem.demuxStream(stream, outputStream, errorStream)
+	
     writestream.on('close', async (file) => {
         action_execution.log_id = file._id
         await action_execution.save()
-    });
-
+	})
+	
     stream2.pipe(writestream)
 
     return new Promise((resolve, reject) => 
     {
-        try{
-
-            outputStream._write = (chunk, encoding, next) => {
-                console.log(chunk.toString())
-                next()
-            }
-        
-            errorStream._write = async(chunk, encoding, next) => 
-            {
-                action_execution.status = executionStatus.FAILED
-                await action_execution.save()
-                console.log(chunk.toString())
-                next()
-                
-            }
-    
+        try{   
             stream.on('end', async () => 
             {
-                console.log("EXIT CODE: ", exec.inspect())
-                console.log('END')
                 if(action_execution.status === executionStatus.INPROGRESS){
                     action_execution.status = executionStatus.SUCCESSFUL
-                    await action_execution.save()
                 }
+                await action_execution.save()
     
                 pipeline_execution.status = action_execution.status
                 await pipeline_execution.save()
@@ -104,9 +96,7 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         }catch(error){
             reject(error)
         }
-        
     });
-
 }
 
 const upload_script = (container, script) => {

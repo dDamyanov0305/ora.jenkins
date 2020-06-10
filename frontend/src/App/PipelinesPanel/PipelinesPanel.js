@@ -5,6 +5,9 @@ import routeStore from '../../Stores/RouteStore';
 import pipelineFormStore from '../../Stores/PipelineFormStore';
 import Modal from '../../Shared/Modal/Modal'
 import runPipelineStore from '../../Stores/RunPipelineStore';
+import moment from 'moment';
+import StatusBadge from '../../Shared/StatusBadge/StatusBadge'
+import TriggerMode from '../../Shared/TriggerMode/TriggerMode'
 import './style.css'
 
 const PipelinesPanel = observer(() =>
@@ -16,47 +19,41 @@ const PipelinesPanel = observer(() =>
                     <th>name</th>
                     <th>status</th>
                     <th>branch</th>
-                    <th>comment</th>
-                    <th>commit</th>
+					<th>trigger</th>
+                    <th>additions</th>
                     <th>started</th>
                     <th>run</th>
                 </tr>
             </thead>
             <tbody>
-                {pipelineStore.pipelines.map(pipeline => <PipelineCard key={pipeline._id} pipeline={pipeline}/>)}
+                {pipelineStore.pipelines.map((pipeline,index) => <PipelineCard key={pipeline._id} index={index} pipeline={pipeline}/>)}
             </tbody>
             <RunPipelineModal/>
         </table>
     </div> 
 )
 
-const PipelineCard = observer(({pipeline}) => (
+const PipelineCard = observer(({pipeline, index}) => (
     <tr class="pipeline-row" onClick={() => pipelineStore.selectPipeline(pipeline)}>
-        <td><b>#1234</b></td>
-        <td>{pipeline.name}</td>
-        <td><StatusBadge status={pipeline.last_exec?.status || 'success'}/></td>
+        
+		<td><b>#{pipelineStore.pipelines.length - index}</b></td>
+        
+		<td>{pipeline.name}</td>
 
-        <td>
-            <Branch branch={pipeline.branch}/>
-        </td>
+        <td><StatusBadge status={pipeline.last_exec?.status.toLowerCase() || 'not executed'}/></td>
 
-        <td class="comment-td">
-            <div class="comment">
-                {pipeline.last_exec?.comment || "препаре фор ежацуатион имедиатели"}
-            </div>
-        </td>
+        <td><Branch branch={pipeline.branch}/></td>
 
-        <td>
-            <div className="commit">
-                <div>
-                    <i class="fas fa-code-commit"></i>
-                    <span>{pipeline.last_exec?.commit || "fa60b43"}</span>
-                </div>
-                <span>Update runtime dependancy</span>
-            </div>
-        </td>
+        <td><TriggerMode mode={pipeline.trigger_mode}/></td>
 
-        <td>{pipeline.last_exec?.date || "8 hours ago"}</td>
+		<td class="additions">
+		    <i class="fas fa-cogs"></i>
+			{pipeline.hasActions && <i class="fas fa-vial"></i>}
+			{pipeline.push_image && <i class="fab fa-docker"></i>}
+			{pipeline.emailing !== 'NEVER' && <i class="fas fa-envelope-open-text"></i>}
+		</td>
+
+        <td>{pipeline.last_exec?moment(pipeline.last_exec.date).fromNow() : "not executed"}</td>
 
         <td onClick={(e) =>{ e.stopPropagation(); runPipelineStore.setPipeline(pipeline)}}>
             <i class="fal fa-play-circle fa-3x"></i>
@@ -107,31 +104,6 @@ const RunPipelineModal = observer(() =>
     </Modal>
 )
 
-const StatusBadge = ({status}) => 
-{
-    switch(status){
-        case 'success' : return <SuccessBagde status={status}/>
-        case 'failed' : return <FailedBagde status={status}/>
-        default : return <NeutralBagde status={status}/>
-    }
-}
- const SuccessBagde = ({status}) =>   
-    <div class="badge green">
-        <i class="fas fa-check-circle"></i>
-        <span>{status}</span>
-    </div>
-
-const FailedBagde = ({status}) =>   
-    <div class="badge red">
-        <i class="fas fa-exclamation-circle"></i>
-        <span>{status}</span>
-    </div>
-
-const NeutralBagde = ({status}) =>   
-    <div class="badge dark">
-        <i class="fas fa-minus-circle"></i>
-        <span>{status}</span>
-    </div>
 
 const Branch = ({branch})  =>   
 <div class="branch">

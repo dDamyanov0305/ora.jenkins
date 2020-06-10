@@ -27,12 +27,14 @@ class UserStore {
 			headers:{'Authorization':`Bearer ${this.token}`}
 		})
 
+		
 		const data = await result.json()
-
+		
         if(result.status < 200 || result.status >= 300){
             console.log(data.error)
         }
         else{
+			
 			this.setAccount(data)
 
         }

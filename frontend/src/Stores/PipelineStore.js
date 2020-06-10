@@ -33,8 +33,8 @@ class PipelineStore {
         routeStore.push(`/project/${projectStore.currentProject.name}/pipelines/${this.currentPipeline.name}`)
     }
     
-    @action getPipelines(){
-        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/all`,{
+    @action getPipelines = async() => {
+        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/pipelines/all`,{
             method:'POST',
             headers:{
                 'Authorization':`Bearer ${user.token}`,
@@ -45,8 +45,11 @@ class PipelineStore {
                 project_id:projectStore.currentProject?._id
             })
         })
-        .then(res => res.json())
-        .then(data => this.setData(data))
+
+        if(result.status >= 200 && result.status<300){
+            const data = await result.json()
+            this.setData(data)
+        }
     }
 
     preRun = (pipeline) => {
@@ -54,8 +57,8 @@ class PipelineStore {
         routeStore.push('/pipelines/run')
     }
 
-    @action getCommits(pipeline){
-        fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/github/commits`,{
+    @action getCommits = async(pipeline) => {
+        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/github/commits`,{
             method:'POST',
             headers:{
                 'Authorization':`Bearer ${user.token}`,
@@ -67,8 +70,11 @@ class PipelineStore {
                 branch: pipeline.branch
             })
         })
-        .then(res => res.json())
-        .then(data => this.commits = data.commits)
+
+        if(result.status >= 200 && result.status<300){
+            const data = await result.json()
+            this.commits = data.commits
+        }
     }
 
     

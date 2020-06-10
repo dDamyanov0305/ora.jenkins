@@ -81,7 +81,7 @@ const MainMenu = observer(()=>
 
             <NavItem onClick={pipelineFormStore.openModal}>
                 <i class="fad fa-layer-plus fa-w-16 fa-2x"></i>
-                <span className="link-text">Add</span>
+                <span className="link-text">New Pipeline</span>
             </NavItem>
 
             <NavItem onClick={pipelineExecutionStore.getLatestExecutions}>
