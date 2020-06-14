@@ -88,14 +88,17 @@ const statusColor = (status) => {
 
 const ActionExecution = observer(({action_execution})=>
 
-    <div class={`action-execution ${statusColor(action_execution.status.toLowerCase())}`} onClick={(e)=> action_execution.status!=="NOT EXECUTED" && e.target.classList.toggle("show")}>
+    <div class={`action-execution ${statusColor(action_execution.status.toLowerCase())}`} onClick={(e)=>{e.target.classList.toggle("show")}}>
         <div>
             <p>{action_execution.action.name}</p>  
             {/* <p>{action_execution.duration && }</p> */}
         </div>
-        <div class="log-container">
+        {
+            <div class="log-container">
             {action_execution.log}
         </div>
+        }
+        
     </div>
 )
 

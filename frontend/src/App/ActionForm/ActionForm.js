@@ -14,14 +14,14 @@ const ActionForm = observer(() =>
     <form onSubmit={actionFormStore.submit}>
         <h2>Action for "{pipelineStore.currentPipeline?.name}"</h2>
         <p>{actionFormStore.errorText}</p>
-        <Input label="name"  value={actionFormStore.data.name} onChange={actionFormStore.handleChange}/>
+        <Input label="name"  value={actionFormStore.data?.name} onChange={actionFormStore.handleChange}/>
         <ShellScriptInput/>        
         <VariablesInput/>
         <label>
-            <input type="checkbox" name="task_linkage" checked={actionFormStore.data.task_linkage} onChange={actionFormStore.checkTaskLinkage}/>
+            <input type="checkbox" name="task_linkage" checked={actionFormStore.data?.task_linkage} onChange={actionFormStore.checkTaskLinkage}/>
             link action to ora task
         </label>
-        {actionFormStore.data.task_linkage && 
+        {actionFormStore.data?.task_linkage && 
         <span onClick={actionFormStore.openModal}>edit</span>
         }
         <TaskLinkageModal/>

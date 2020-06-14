@@ -93,3 +93,9 @@
     overflow: auto;
     padding: 1rem
 }
+
+.action-execution > div:first-child{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}

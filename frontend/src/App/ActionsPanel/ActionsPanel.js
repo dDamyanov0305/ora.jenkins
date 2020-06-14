@@ -48,12 +48,12 @@ const ActionsPanel = observer(() =>{
         {view}
         <div class="final-actions">
 
-        {pipelineStore.currentPipeline.push_image &&
+        {pipelineStore.currentPipeline?.push_image &&
         <div class="action">
             docker hub
             <i class="fab fa-docker"></i>
         </div>}
-        {pipelineStore.currentPipeline.emailing !=='NEVER' &&
+        {pipelineStore.currentPipeline?.emailing !=='NEVER' &&
         <div class="action">
             emailing
             <i class="fas fa-envelope-open-text"></i>

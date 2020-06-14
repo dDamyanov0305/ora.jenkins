@@ -10,6 +10,8 @@ const archiver = require('archiver')
 const streamBuffers = require('stream-buffers');
 
 module.exports.execute = async function({ pipeline, pipeline_execution, container }){
+	try{
+		
     const gfs = await gfsPromise 
     const action_execution = await ActionExecution.create({
         action_id: this._id,
@@ -27,8 +29,12 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
     }
 
 	const env = this.variables.map(({key,value})=>`${key}=${value}`)
-	console.log(env)
-    let commands
+
+	let commands
+
+	// if(this.variables.length !=0 ){
+	// 	let variables = this.
+	// }
 
     if(this.shell_script){
         const readstream = gfs.createReadStream({_id: this.script_file_id})
@@ -107,6 +113,9 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
 					action_execution.status = executionStatus.FAILED
 					
 				}
+				else{
+					action_execution.status = executionStatus.SUCCESSFUL
+				}
 
                 // if(action_execution.status === executionStatus.INPROGRESS){
                 //     action_execution.status = executionStatus.SUCCESSFUL
@@ -122,7 +131,11 @@ module.exports.execute = async function({ pipeline, pipeline_execution, containe
         }catch(error){
             reject(error)
         }
-    });
+	});
+}catch(error){
+	console.log(error)
+
+}
 }
 
 const upload_script = (container, script) => {

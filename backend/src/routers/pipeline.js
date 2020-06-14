@@ -106,6 +106,8 @@ router.post('/pipelines/:pipeline_id/cron-trigger', async(req, res) => {
 
     const { pipeline_id } = req.params
 
+    console.log("CRON")
+
     const pipeline = await Pipeline.findById(pipeline_id)
     const project = await Project.findById(pipeline.project_id)
     const executor = await User.findById(pipeline.creator_id)

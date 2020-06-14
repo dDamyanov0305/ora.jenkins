@@ -12,7 +12,6 @@ const AuthCallback = () =>
 
   if(window.opener)
   {
-    //alert(urlParams.get('code'))
     window.opener.auth_done(urlParams.get('code'), type)
   }
   window.close()
@@ -36,7 +35,7 @@ async function auth_done(code, type) {
 
       let routes = {
         '/project/create':()=>{providerStore.getRepos()},
-        '/action/create':()=>{actionFormStore.getProjects()},
+        '/action/create':()=>{actionFormStore.fetchProjects()},
         '/workspace/create':()=>{workspaceFormStore._getOrganizations()},
         '/pipeline/create':()=>{}
       }

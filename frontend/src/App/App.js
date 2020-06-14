@@ -41,8 +41,6 @@ const App = (props) => {
   
   return (
     <div>
-      {/* {<button onClick={user.logout}>logout</button>
-      <WorkspacesList/>} */}
       <Layout>
         <Switch>
           <Route exact path="/login" component={Login}/>

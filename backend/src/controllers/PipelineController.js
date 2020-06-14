@@ -56,8 +56,8 @@ async function test_image({image, config, pipeline, pipeline_execution}){
 
     const container = await docker.createContainer({ AttachStdin: false, AttachStdout: true, AttachStderr: true, Tty: true, Image: image.name })
     await container.start()
-    console.log(actions)
-    for(action of actions){console.log("vliza")
+
+    for(action of actions){
         let status = await action.execute({pipeline, pipeline_execution, container})
         console.log("STATUS: ", status)
     }
@@ -76,6 +76,7 @@ async function test_image({image, config, pipeline, pipeline_execution}){
 }
 
 async function push_img(image, options){
+    console.log("VLIZA")
     let stream = await image.push(options)
     stream.on('data',(data)=>console.log(data.toString()))
     stream.on('error',()=>console.log('error'))
@@ -92,7 +93,7 @@ async function send_emails({email_recipients, pipeline_execution, index, name}){
         // html: `<a href="http://localhost:3000/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
     })
 
-    console.log(info)
+    // console.log(info)
 }
 
 async function create_gitlab_hook({pipeline, token, project}){
