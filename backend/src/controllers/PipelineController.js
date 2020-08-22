@@ -279,7 +279,7 @@ module.exports.create_cron_job = async function({pipeline, token, cron_date}){
 
     pipeline.cron_date = cron_date
 
-    const cron_arr=cron_date.split(" ")
+    const cron_arr = cron_date.split(" ")
 
     if(cron_arr.length != 5){
         throw new Error("invalid cron date")

@@ -1,13 +1,11 @@
 const express = require('express')
+const app = express()
 const cors = require('cors');
 const fileUpload = require('express-fileupload')
-const morgan = require("morgan");
 const port = process.env.PORT
+import './middleware/error'
 
-const app = express()
-
-console.log(process.env.EMAIL_PASSWORD)
-
+app.use(error)
 app.use(cors())
 app.use(express.json())
 app.use(fileUpload({
@@ -26,6 +24,9 @@ app.use(require('./routers/workspace'))
 app.use(require('./routers/executions'))
 app.use(require('./routers/ora'))
 
-app.listen(port, () => {
+const server = require('http').createServer(app);
+const io = require('socket.io')(server, {});
+
+server.listen(port, () => {
   console.log(`Server running on port ${port}`)
 })

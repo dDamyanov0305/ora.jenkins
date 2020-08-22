@@ -55,42 +55,33 @@ router.post('/actions/create', [auth, check_permission], async(req, res) => {
         ora_list_id_on_failure
     } = req.body
 
-    console.log(req.body)
+    const action = new Action({ 
+        name, 
+        execute_commands: JSON.parse(execute_commands), 
+        pipeline_id, 
+        prev_action_id: prev_action_id || null, 
+        variables: JSON.parse(variables), 
+        task_linkage: JSON.parse(task_linkage),
+        shell_script: JSON.parse(shell_script),
+        ora_task_id: JSON.parse(ora_task_id),
+        ora_project_id: JSON.parse(ora_project_id),
+        ora_list_id_on_success: JSON.parse(ora_list_id_on_success),
+        ora_list_id_on_failure: JSON.parse(ora_list_id_on_failure) 
+    })
 
-    try{
-
-        const action = new Action({ 
-            name, 
-            execute_commands: JSON.parse(execute_commands), 
-            pipeline_id, 
-            prev_action_id: prev_action_id || null, 
-            variables: JSON.parse(variables), 
-            task_linkage: JSON.parse(task_linkage),
-            shell_script: JSON.parse(shell_script),
-            ora_task_id: JSON.parse(ora_task_id),
-            ora_project_id: JSON.parse(ora_project_id),
-            ora_list_id_on_success: JSON.parse(ora_list_id_on_success),
-            ora_list_id_on_failure: JSON.parse(ora_list_id_on_failure) 
-        })
-
-        if(next){
-            var next_action = await Action.findById(next)
-            next_action.prev_action_id = action._id
-            await next_action.save()
-        }
-
-        if(JSON.parse(shell_script)){
-            await ActionController.save_shell_script(req.files.execute_script.data)
-        }
-
-        await action.save()
-        res.status(201).json({action})
-
+    if(next){
+        var next_action = await Action.findById(next)
+        next_action.prev_action_id = action._id
+        await next_action.save()
     }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
+
+    if(JSON.parse(shell_script)){
+        await ActionController.save_shell_script(req.files.execute_script.data)
     }
+
+    await action.save()
+    res.status(201).json({action})
+
 })
 
 

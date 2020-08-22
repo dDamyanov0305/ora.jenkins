@@ -1,114 +1,105 @@
 const express = require('express')
+const router = express.Router()
 const User = require('../models/User')
 const Integration = require('../models/Integration')
-const auth = require('../middleware/auth')
-const router = express.Router()
 const Workspace = require('../models/Workspace')
+const auth = require('../middleware/auth')
+import socketServer from '../socket'
+
 
 router.post('/users/create', async (req, res) => {
 
     const {name, email, password, confirmedPassword } = req.body
 
-    try {
-
-        if(!name || !email){
-            throw new Error("fill all fields")
-        }
-
-        if(!password || password.lenght < 5)
-            throw new Error("Your password must be at least 5 characters long.")
-
-
-        if(password !== confirmedPassword)
-            throw new Error("Your passwords don't match.")
-    
-        let user = await User.findOne({ email })
-
-        if(user)
-            throw new Error('This email is taken.')
-
-        user = await User.create({name, email, password})
-        await user.save()
-        const token = await user.generateAuthToken()
-
-        await Workspace.create({
-            name: name, 
-            owner_id: user._id, 
-            members:[user._id]
-        })
-
-        const integrations = await Integration.find({ user_id: user._id })
-
-        res.status(201).json({user, token, integrations})
-    } 
-    catch (error) {
-        console.log(error)
-        res.status(500).json({error:error.message})
+    if(!name || !email){
+        throw new Error("fill all fields")
     }
+
+    if(!password || password.lenght < 5)
+        throw new Error("Your password must be at least 5 characters long.")
+
+
+    if(password !== confirmedPassword)
+        throw new Error("Your passwords don't match.")
+
+    let user = await User.findOne({ email })
+
+    if(user)
+        throw new Error('This email is taken.')
+
+    user = await User.create({name, email, password})
+
+    const token = await user.generateAuthToken()
+
+    await Workspace.create({
+        name: name, 
+        owner_id: user._id, 
+        members:[user._id]
+    })
+
+    const integrations = await Integration.find({ user_id: user._id })
+
+    socketServer.add(user, token)
+
+
+    res.status(201).json({ user, token, integrations })
+
 })
 
-router.post('/users/login', async(req, res) => {
+router.post('/users/login', async (req, res) => {
+
     const { email, password } = req.body  
     
-    try {
-        const user = await User.findByCredentials(email, password)
+    const user = await User.findByCredentials(email, password)
 
-        const token = await user.generateAuthToken()
+    const token = await user.generateAuthToken()
 
-        const integrations = await Integration.find({ user_id: user._id })
+    const integrations = await Integration.find({ user_id: user._id })
 
-        res.status(200).json({user, token, integrations})
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+    res.status(200).json({ user, token, integrations })
+
+
 })
 
-router.get('/users/me', auth, async(req, res) => {
-    try{
-        const integrations = await Integration.find({ user_id: req.user._id })
-        res.status(200).json({user:req.user, token: req.token, integrations})
-    }catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+router.use(auth)
+
+router.get('/users/me', async (req, res) => {
+
+    const integrations = await Integration.find({ user_id: req.user._id })
+
+    res.status(200).json({ user:req.user, token: req.token, integrations })
+
 })
 
-router.post('/users/me/logout', auth, async (req, res) => {
-    try {
-        req.user.tokens = req.user.tokens.filter(token => token.token != req.token)
-        await req.user.save()
-        res.send()
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+router.post('/users/me/logout', async (req, res) => {
+
+    req.user.tokens = req.user.tokens.filter(token => token.token != req.token)
+
+    await req.user.save()
+
+    res.end()
+
 })
 
-router.post('/users/me/logoutall', auth, async(req, res) => {
-    try {
-        req.user.tokens.splice(0, req.user.tokens.length)
-        await req.user.save()
-        res.send()
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+router.post('/users/me/logoutall', async (req, res) => {
+  
+    req.user.tokens.splice(0, req.user.tokens.length)
+
+    await req.user.save()
+
+    res.end()
+   
 })
 
-router.delete('/users', auth, async (req, res) => {
+router.delete('/users', async (req, res) => {
 
     const { user_id } = req.body
 
-    try{
-        const user = await User.findById(user_id)
-        let del = user.delete()
-        res.status(200).json({data:del})
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+    const user = await User.findById(user_id)
+
+    let del = user.delete()
+
+    res.status(200).json({ result:del })
 
 })
 

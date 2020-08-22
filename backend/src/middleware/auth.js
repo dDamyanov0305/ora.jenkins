@@ -10,14 +10,15 @@ const auth = async(req, res, next) => {
     try {
 
         if(!tokens || !tokens.includes('Bearer ') || !(token = tokens.replace('Bearer ', ''))){
-            res.status(403).json({error:'No authentication token present in headers.'})
+            res.status(401).json({ error:'No authentication token present in headers.' })
         }
 
         const data = jwt.verify(token, process.env.JWT_KEY)
+
         const user = await User.findOne({ _id: data._id, 'tokens.token': token })
 
         if (!user) 
-            return res.status(400).send()
+            res.status(401).json({ error:'Invalid token.' })
         
         req.user = user
         req.token = token

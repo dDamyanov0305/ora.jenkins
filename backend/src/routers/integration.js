@@ -1,49 +1,36 @@
 const express = require('express')
 const router = express.Router()
-const auth = require('../middleware/auth')
 const Integration = require('../models/Integration')
+const auth = require('../middleware/auth')
 
-router.get('/integrations/all', auth, async(req, res) => {
+router.use(auth)
 
-    try{
-        const integrations = await Integration.find({ user_id: req.user._id })
-        res.status(200).json({integrations})
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).send(error)
-    }
+router.get('/integrations/all', async (req, res) => {
+    
+    const integrations = await Integration.find({ user_id: req.user._id })
 
+    res.status(200).json({ integrations })
+    
 })
 
-router.delete('/integrations/all', auth, async(req, res) => {
+router.delete('/integrations/all', async (req, res) => {
 
     const { type } = req.body
 
-    try{
-        const integrations = await Integration.deleteMany({ user_id: req.user._id, type })
-        res.status(200).json({integrations})
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error:error.message})
-    }
+    const integrations = await Integration.deleteMany({ user_id: req.user._id, type })
+
+    res.status(200).json({ integrations })
 
 })
 
-router.post('/integration/get', auth, async(req, res) => {
+router.post('/integration/get', async (req, res) => {
 
     const { _id } = req.body
 
-    try{
-        const integration = await Integration.findOne({ user_id: req.user_id, _id })
-        res.status(200).json(integration)
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).send(error)
-    }
-    
+    const integration = await Integration.findOne({ user_id: req.user_id, _id })
+
+    res.status(200).json({ integration })
+
 })
 
 module.exports = router

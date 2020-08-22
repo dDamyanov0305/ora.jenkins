@@ -6,7 +6,7 @@ const workspaceSchema = mongoose.Schema({
         type: String,
         require: true
     },
-    members: [ {type: mongoose.SchemaTypes.ObjectId, ref: 'User'} ],
+    members: [{ type: mongoose.SchemaTypes.ObjectId, ref: 'User' }],
     owner_id: {
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User',
@@ -28,19 +28,28 @@ workspaceSchema.methods.delete = async function() {
 
     let project_deletes =  projects.map(async(project) => await project.delete())
 
-    return new Promise((resolve,reject) => {
+    return new Promise(async (resolve,reject) => {
 
-        Promise.all(project_deletes)
-        .then(() => {
-            Workspace.deleteOne({_id:workspace._id})
-            .then((val) => resolve(val))
-            .catch((error) => reject(error))
-        })
-       
+        await Promise.all(project_deletes)
+
+        try{
+
+            let result = await Workspace.deleteOne({_id: workspace._id})
+
+            resolve(result)
+
+
+        } catch(error) {
+
+            reject(error.message)
+
+        }
+
     })
-
+       
 
 }
 
 const Workspace = mongoose.model('Workspace', workspaceSchema)
+
 module.exports = Workspace

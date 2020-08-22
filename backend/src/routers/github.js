@@ -1,68 +1,68 @@
 const express = require('express')
 const router = express.Router()
-const auth = require('../middleware/auth')
+const fetch = require('node-fetch')
 const Integration = require('../models/Integration')
 const Project = require('../models/Project')
 const integrationTypes = require('../constants').integrationTypes
-const fetch = require('node-fetch')
+const auth = require('../middleware/auth')
 
-router.get('/github/oauth', auth, async (req, res) => {
+router.use(auth)
+
+router.get('/github/oauth', async (req, res) => {
 
     const integration = await Integration.findOne({ user_id: req.user._id, type: integrationTypes.GITHUB })
 
     if(integration)
-        return res.status(200).json({integration})
-
+        return res.status(200).json({ integration })
 
     const { code } = req.query
 
     if(!code)
-        res.status(403).send()
+        res.status(403).end()
     
-    try{
-        const result = await fetch(`https://github.com/login/oauth/access_token?client_id=${process.env.GITHUB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITHUB_OAUTH_CLIENT_SECRET}&code=${code}`,
-        {
-            method:'POST',
-            headers:{'Accept':'application/json'},
-        })
-    
-        if(result.status < 200 || result.status >= 300){
-            res.status(result.status).send()
-        }
-        else{
-            
-            const { access_token: token } = await result.json()
-            
-            const getNameResult = await fetch('https://api.github.com/user',{headers:{"Authorization":`token ${token}`}})
-            
-            const { login: username } = await getNameResult.json()
-            
-            const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.GITHUB, token, username })
-            res.status(201).json({integration})
-        }
 
-    }
-    catch(error){
-        console.log(error)
-        res.status(500).json({error})
+    const result = await fetch(`https://github.com/login/oauth/access_token?client_id=${process.env.GITHUB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITHUB_OAUTH_CLIENT_SECRET}&code=${code}`, {
+        method:'POST',
+        headers: { 'Accept': 'application/json' },
+    })
+
+    if(result.status < 200 || result.status >= 300) {
+
+        res.status(result.status).send()
+
+    } else {
+        
+        const { access_token: token } = await result.json()
+        
+        const getNameResult = await fetch('https://api.github.com/user', { 
+            headers: { "Authorization": `token ${token}` }
+        })
+        
+        const { login: username } = await getNameResult.json()
+        
+        const integration = await Integration.create({ user_id: req.user._id, type:integrationTypes.GITHUB, token, username })
+
+        res.status(201).json({ integration })
     }
 
 })
 
-router.get('/github/repos', auth, async (req, res) => {
+router.get('/github/repos', async (req, res) => {
 
-    const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
+    const integration = await Integration.findOne({ user_id: req.user._id, type: integrationTypes.GITHUB })
 
-    if(!integration){
-        res.status(400).json({error:'Not integrated with selectet hosting provider.'})
-    }
+    if(!integration)
+        res.status(400).json({ error:'Not integrated with selectet hosting provider.' })
+    
 
-    const personal_repos = await (await fetch('https://api.github.com/user/repos',{
-        headers:{
+    const data = await fetch('https://api.github.com/user/repos', {
+        headers: {
             "Content-type": "application/json",
             "Authorization": "token " + integration.token
         }
-    })).json()
+    })
+
+    const presonal_repos = await data.json()
 
     const organization_repos = []
 
@@ -90,7 +90,7 @@ router.get('/github/repos', auth, async (req, res) => {
     
 })
 
-router.post('/github/repo/branches', auth, async (req, res) => {
+router.post('/github/repo/branches', async (req, res) => {
 
     const { project_id } = req.body
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
@@ -120,29 +120,35 @@ router.post('/github/repo/branches', auth, async (req, res) => {
 router.post('/github/repo/commits', auth, async (req, res) => {
 
     const { project_id, branch } = req.body
+
     const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.GITHUB})
+
     const project = await Project.findById(project_id)
 
-    if(!integration){
+    if(!integration)
         res.status(400).json({error:'Not integrated with selectet hosting provider.'})
-    }
+    
 
-    const result = await fetch(`https://api.github.com/repos/${project.repository}/commits?sha=${branch}`,{
-        headers:{
+    const result = await fetch(`https://api.github.com/repos/${project.repository}/commits?sha=${branch}`, {
+        headers: {
             "Content-type": "application/json",
             "Authorization": "token " + integration.token
         }
     })
 
-    if(result.status < 200 || result.status >= 300){
+    if(result.status < 200 || result.status >= 300) {
+
         res.status(result.status).json({error:'Error occured when fetching branches.'})
-    }
-    else{
+
+    } else {
+
         const data = await result.json()
-        const commits = data.map(commit => ({sha:commit.sha , message: commit.commit.message}))
-        res.status(200).json({commits})
+
+        const commits = data.map(commit => ({ sha:commit.sha , message: commit.commit.message }))
+
+        res.status(200).json({ commits })
+
     }
 })
-
 
 module.exports = router
