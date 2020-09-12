@@ -34,7 +34,7 @@
     "mongoose-gridfs": "^1.2.36",
     "morgan": "^1.10.0",
     "node-docker-api": "^1.1.22",
-    "node-fetch": "^2.6.0",
+    "node-fetch": "^2.6.1",
     "nodemailer": "^6.4.2",
     "nodemon": "^2.0.2",
     "readable-stream-clone": "0.0.7",
