@@ -29,7 +29,6 @@ const App = (props) => {
   window.auth_done = auth_done
   
 
-
   if(!user.loggedIn && 
     routeStore.pathname !== '/login' && 
     routeStore.pathname !== '/register' && 

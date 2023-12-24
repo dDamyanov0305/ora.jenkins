@@ -1,7 +1,9 @@
 import { observable, action } from "mobx";
 import user from './UserStore'
-import routeStore from './RouteStore'
-import storage from '../Services/perfectLocalStorage'
+import { integrationTypes } from "../constants"
+import { workspaces, ora } from '../Services/Server'
+import { ORA_PROVIDER } from "../Providers/Providers"
+
 
 class WorkspaceFormStore{
     @observable name = ''
@@ -22,15 +24,16 @@ class WorkspaceFormStore{
     }
 
     @action addToInvite = email => {
-        if(this.toInvite.includes(email)){
+        if (this.toInvite.includes(email)) {
             this.toInvite = this.toInvite.filter(invitedEmail => invitedEmail !== email)
-        }else{
+        }
+        else {
             this.toInvite.push(email)
         }
     } 
 
     @action selectAll = () => {
-        this.toInvite = [...this.toInvite, ...(this.members.map(member=>member.email))]
+        this.toInvite = [ ...this.toInvite, ...this.members.map(member => member.email) ]
     }
 
     @action handleNameChange = (e) => {
@@ -60,143 +63,75 @@ class WorkspaceFormStore{
 
     @action handleSubmit = async(e) => {
         e.preventDefault()
-        
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/workspaces/create`,{
-            method:'POST',
-            headers:{
-                "Content-type": "application/json",
-                "Authorization": `Bearer ${user.token}`
-            },
-            body:JSON.stringify({name:this.name})
-        })
 
-        const data = await result.json()
-        
-        if(result.status >= 200 && result.status < 300 ){
-            this.step = 2
+        const { name } = this
+        workspaces
+        .createWorkspace({ name })
+        .then(data => { 
             this.workspace = data.workspace
-        }
-        else{
-            this.errorText = data.error
-        }
+            this.step = 2
+        })
+        .catch(error => this.errorText = error.message)
     }
 
     @action getOrganizationMembers = () => {
-        const isIntegrated = user.integrations.find(integration => integration.type === "ORA")
-        console.log("is integrated:", isIntegrated)
+        const isIntegrated = user.integrations.find(integration => integration.type === integrationTypes.ORA)
             
-        if(!isIntegrated){
-            storage.set("return_uri",'/workspace/create')
-            window.open(`https://ora.pm/authorize?client_id=${process.env.REACT_APP_ORA_OAUTH_CLIENT_ID}&redirect_uri=http://localhost:3000/ora/oauth/callback&response_type=code`,'_blank','height=570,width=520')
-        }
-        else{
+        if (!isIntegrated)
+            ORA_PROVIDER.authorize()
+        
+        else
             this._getOrganizations()
-        }
+        
     }
 
-    @action _getOrganizations = async() =>{
-
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/organizations`,{
-            method:'POST',
-            headers:{
-                'Authorization':`Bearer ${user.token}`,
-                'Content-type':'application/json'
-            }
-        })
-
-        const data = await result.json()
-
-        if(result.status < 200 || result.status >= 300){
-            this.errorText = data.error
-        }
-        else{
-            console.log(data.organizations)
+    @action _getOrganizations = () =>{
+        ora
+        .getOrganizations()
+        .then(data => {
             this.organizations = data.organizations
             this.showModal = true
-        }
-    }
-
-    @action _getMembers = async() => {
-
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/ora/organization_members`,{
-            method:'POST',
-            headers:{
-                'Authorization':`Bearer ${user.token}`,
-                'Content-type':'application/json'
-            },
-            body:JSON.stringify({organization_id:this.organization_id})
-
         })
-
-        const data = await result.json()
-
-        if(result.status < 200 || result.status >= 300){
-            this.errorText = data.error
-        }
-        else{
-            console.log(data.members)
-            this.members = data.members.developers
-        }
+        .catch(error => this.errorText = error.message)
     }
 
-    @action sendInvite = async() => {
+    @action _getMembers = () => {
+        const { organization_id } = this
 
-        const email = this.email
-
-        if(!this.invited.includes(email)){
-
-            const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/workspaces/invite_one`,{
-                method:'POST',
-                headers:{
-                    'Authorization':`Bearer ${user.token}`,
-                    'Content-type':'application/json'
-                },
-                body:JSON.stringify({
-                    workspace_id: this.workspace._id,
-                    email
-                })
-            })
-    
-            const data = await result.json()
-    
-            if(result.status < 200 || result.status >= 300){
-                this.errorText = data.error
-            }
-            else{
-                this.invited.push(email)
-                this.email = ''
-            }
-        }
-
+        ora
+        .getOrganizationMembers({ organization_id })
+        .then(data => this.members = data.members.developers)
+        .catch(error => this.errorText = error.message)
     }
 
-    @action sendInvites = async() => {
+    @action sendInvite = () => {
+        const { email, workspace } = this
 
-        const emails = this.toInvite
+        if(this.invited.includes(email)) 
+            return
 
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/workspaces/invite_many`,{
-            method:'POST',
-            headers:{
-                'Authorization':`Bearer ${user.token}`,
-                'Content-type':'application/json'
-            },
-            body:JSON.stringify({
-                workspace_id: this.workspace._id,       
-                emails
-            })
+        workspaces
+        .inviteOne({ email, workspace_id: workspace._id })
+        .then(() => {
+            this.invited.push(email)
+            this.email = ''
         })
+        .catch(error => this.errorText = error.message)
+    }
 
-        const data = await result.json()
+    @action sendInvites = () => {
+        const { toInvite: emails } = this
 
-        if(result.status < 200 || result.status >= 300){
-            this.errorText = data.error
-        }
-        else{
+        workspaces
+        .inviteMany({ emails, workspace_id: workspace._id })
+        .then(() => {
             this.invited = [...this.invited, ...emails]
-        }
+        })
+        .catch(error => this.errorText = error.message)
     }
     
 }
+
 
 const workspaceFormStore = new WorkspaceFormStore()
 export default workspaceFormStore

@@ -3,55 +3,44 @@ import storage from '../Services/perfectLocalStorage';
 import user from '../Stores/UserStore'
 import projectStore from './ProjectStore';
 import routeStore from './RouteStore';
+import { workspaces } from '../Services/Server'
+
 
 class WorkspaceStore {
 
-	@observable currentWorkspace;
-	@observable workspaces = [];
+	@observable currentWorkspace
+	@observable workspaces = []
 
-
-	@action setData({workspaces}) {
-		this.workspaces = workspaces;
+	@action setData({ workspaces }) {
+		this.workspaces = workspaces
 
 		let workspace_id = storage.get('ora.ci_workspace')
 		let selected = null
 
-		if(!workspace_id){
+		if(!workspace_id) {
 			selected = this.workspaces.find(workspace => workspace.name === user.name)
 		}
-		else{
+		else {
 			selected = this.workspaces.find(workspace => workspace._id === workspace_id)
 		}
 
 		this.selectWorkspace(selected)
-		
 	}
 
-	@action selectWorkspace(workspace){
+	@action selectWorkspace(workspace) {
 		this.currentWorkspace = workspace
 		storage.set('ora.ci_workspace', this.currentWorkspace._id)
 		projectStore.getProjects()
 		routeStore.push("/projects")
 	}
 
-	@action async getWorkspaces(){
-        const result = await fetch(`${process.env.REACT_APP_SERVER_ADDRESS}/workspaces/all`,{
-            headers:{
-                'Authorization':`Bearer ${user.token}`,
-                'Content-type':'application/json'
-            }
-        })
-		const data = await result.json()
-		if(result.status < 200 || result.status >= 300){
-			console.log(data.error)
-		}
-		else{
-			this.setData(data)
-		}
-		
+	@action getWorkspaces() {
+		workspaces
+		.getWorkspaces()
+		.then(data => this.setData(data))	
     }
 
 }
 
-const workspaceStore = new WorkspaceStore();
+const workspaceStore = new WorkspaceStore()
 export default workspaceStore

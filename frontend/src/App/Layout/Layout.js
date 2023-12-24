@@ -122,43 +122,43 @@ const TopNavBar = observer(({children})=>
     </nav>
 )
 
-const Layout = observer(({children})=>
+const Layout = observer(({ children }) =>
     routeStore.pathname !== '/login' && routeStore.pathname!=='/register' ?
-        <>
-            <NewPipelineProjectSelect/>
-            <TopNavBar/>
-            <MySideBar/>
-            <main className="root" ref={sidebarStore.mainRef}>
-                <div>
-                    {children}
-                </div>
-            </main>
-        </> : 
-        children       
+    <>
+        <NewPipelineProjectSelect/>
+        <TopNavBar/>
+        <MySideBar/>
+        <main className="root" ref={sidebarStore.mainRef}>
+            <div>
+                {children}
+            </div>
+        </main>
+    </> : 
+    children       
 )
 
-const NewPipelineProjectSelect = observer(()=>
-<Modal show={pipelineFormStore.showModal}>
-                <div class="new-pipeline-modal">
-                    <div>
+const NewPipelineProjectSelect = observer(() =>
+    <Modal show={pipelineFormStore.showModal}>
+        <div class="new-pipeline-modal">
+            <div>
 
-                        <h1>slelect project</h1>
-                        <div class="new-pipeline-column-grid" >
-                            {projectStore.projects.map(project =>
-                                <div class={project._id === pipelineFormStore.project?._id && "green-higlight"} onClick={() => pipelineFormStore.setProject(project)}>
-                                    <span>{project.name}</span>
-                                    <i class={`fab fa-${project.hosting_provider.toLowerCase()} fa-w-16 fa-2x`}></i>
-                                </div> 
-                            )}
-                        </div>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button class="close btn"onClick={pipelineFormStore.closeModal}>close</button>
-                        <button class="run btn" onClick={pipelineFormStore.go}>go</button>
-                    </div>
+                <h1>slelect project</h1>
+                <div class="new-pipeline-column-grid" >
+                    {projectStore.projects.map(project =>
+                        <div class={project._id === pipelineFormStore.project?._id && "green-higlight"} onClick={() => pipelineFormStore.setProject(project)}>
+                            <span>{project.name}</span>
+                            <i class={`fab fa-${project.hosting_provider.toLowerCase()} fa-w-16 fa-2x`}></i>
+                        </div> 
+                    )}
                 </div>
-            </Modal>
+            </div>
+
+            <div class="modal-actions">
+                <button class="close btn"onClick={pipelineFormStore.closeModal}>close</button>
+                <button class="run btn" onClick={pipelineFormStore.go}>go</button>
+            </div>
+        </div>
+    </Modal>
 )
 
 export default Layout

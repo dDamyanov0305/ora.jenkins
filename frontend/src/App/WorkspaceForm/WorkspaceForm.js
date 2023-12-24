@@ -1,8 +1,8 @@
 import React from 'react'
 import { observer } from 'mobx-react'
 import workspaceFormStore from '../../Stores/WorkspaceFormStore'
-import { observable } from 'mobx'
 import Modal from '../../Shared/Modal/Modal'
+
 
 const WorkspaceForm = observer(()=>(
     <div>
@@ -18,7 +18,7 @@ const WorkspaceNameForm = observer(()=>(
     </form>
 ))
 
-const EamilInvites = observer(()=>(
+const EamilInvites = observer(() => (
     <div>
         <input type="text" name="email" value={workspaceFormStore.email} onchange={workspaceFormStore.handleChange}/>    
         <button onClick={workspaceFormStore.sendInvite}>send invite</button>

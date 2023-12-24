@@ -2,11 +2,9 @@ import React from 'react';
 import { observer } from 'mobx-react';
 import actionFormStore from '../../Stores/ActionFormStore'
 import Modal from '../../Shared/Modal/Modal'
-import './ActionForm.css'
-import { observable } from 'mobx';
 import Input from '../../Shared/Input/Input'
-import pipelineFormStore from '../../Stores/PipelineFormStore';
 import pipelineStore from '../../Stores/PipelineStore';
+import './ActionForm.css'
 
 const ActionForm = observer(() => 
 <div class="action-form-container">

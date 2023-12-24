@@ -20,7 +20,7 @@ router.get('/gitlab/oauth', auth, async (req, res) => {
         res.status(403).send()
     
     try{
-        const result = await fetch(`https://gitlab.com/oauth/token?client_id=${process.env.GITLAB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITLAB_OAUTH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${process.env.REDIRECT_URI}`,
+        const result = await fetch(`https://gitlab.com/oauth/token?client_id=${process.env.GITLAB_OAUTH_CLIENT_ID}&client_secret=${process.env.GITLAB_OAUTH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${process.env.CLIENT_ADDRESS}/${process.env.GITLAB_OAUTH_REDIRECT_ENDPOINT}`,
         {
             method:'POST',
             headers:{'Accept':'application/json'},

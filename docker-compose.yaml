@@ -1,0 +1,33 @@
+version: "3"
+services:
+  server:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    expose:
+      - "5000"
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  client:
+    build: ./frontend
+    env_file:
+      - ./backend/.env
+    expose:
+      - "3000"
+    depends_on:
+      - server
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - server
+      - client
+  ngrok:
+    image: wernight/ngrok
+    ports:
+      - "4040:4040"
+    command: ngrok http --domain=gorgeous-namely-feline.ngrok-free.app nginx:80

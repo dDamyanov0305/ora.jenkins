@@ -29,7 +29,7 @@ router.post('/invites/create', [auth, check_permission], async(req, res) => {
                 from: req.user.email,
                 to: email,
                 subject: `Invite to Ora.CI workspace ${workspace.name}`, 
-                html:`<a href="http://localhost:3000/invites"`
+                html:`<a href="${process.env.CLIENT_ADDRESS}/invites"`
             })
             let invite = await Invite.create({email, workspace_id, sender_id, status: inviteStatus.PENDING})
             console.log(invite)

@@ -129,7 +129,7 @@ router.post('/ora/organizations', auth, async (req, res) => {
     }
 })
 
-router.post('/ora/organization_members', auth, async (req, res) => {
+router.post('/ora/organization/members', auth, async (req, res) => {
 
     try{
         const integration = await Integration.findOne({user_id: req.user._id, type: integrationTypes.ORA})

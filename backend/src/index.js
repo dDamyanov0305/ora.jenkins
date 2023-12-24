@@ -1,12 +1,9 @@
 const express = require('express')
 const cors = require('cors');
 const fileUpload = require('express-fileupload')
-const morgan = require("morgan");
+
 const port = process.env.PORT
-
 const app = express()
-
-console.log(process.env.EMAIL_PASSWORD)
 
 app.use(cors())
 app.use(express.json())

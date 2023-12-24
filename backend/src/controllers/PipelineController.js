@@ -83,17 +83,16 @@ async function push_img(image, options){
     stream.on('end',()=>console.log('end'))
 }
 
-async function send_emails({email_recipients, pipeline_execution, index, name}){
+async function send_emails({ email_recipients, pipeline_execution, index, name }) {
 
-    let info = await transporter.sendMail({
+    transporter.sendMail({
         from: '"Ora.CI" <dimitar.damyanov0305@gmail.com>',
         to: email_recipients.join(','),
         subject: `Execution #${index} for pipeline ${name}`, 
         text: `status: ${pipeline_execution.status}`,
-        // html: `<a href="http://localhost:3000/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
+        html: `<a href="${process.env.CLIENT_ADDRESS}/execution/${pipeline_execution._id}">for detailed information follow this link</a>`
     })
 
-    // console.log(info)
 }
 
 async function create_gitlab_hook({pipeline, token, project}){
