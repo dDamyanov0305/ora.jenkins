@@ -46,16 +46,18 @@ class ProviderStore {
     }
 
     @action getRepos = () => {
-        this.currentProvider.api.getRepos()
-            .then(data => {
-                this.personal_repos = data.personal_repos
-                this.organization_repos = data.organization_repos || []
-            })
-            .catch(error => this.errorText = error.message)
+        this.currentProvider.api
+        .getRepos()
+        .then(data => {
+            this.personal_repos = data.personal_repos
+            this.organization_repos = data.organization_repos || []
+        })
+        .catch(error => this.errorText = error.message)
     }
 
     @action selectRepo = ({ name, full_name: repository }) => {
-        projects.createProject({
+        projects
+        .createProject({
             workspace_id: workspaceStore.currentWorkspace._id, 
             hosting_provider: this.currentProvider.provider.name,
             name, 

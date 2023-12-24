@@ -61,14 +61,15 @@ class RunPipelineStore {
     }
 
     run = () => {
-        pipelines.manualRun({ 
+        pipelines
+        .manualRun({ 
             workspace_id: workspaceStore.currentWorkspace._id, 
             pipeline_id: this.pipeline._id,
             comment: this.data.comment,
             revision: this.data.revision,
             trigger_mode: triggerModes.MANUAL
         })
-        .then(() => this.closeModal())
+        .then(this.closeModal)
     }
 
     @action openCommits = (e) => {

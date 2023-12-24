@@ -34,10 +34,12 @@ class PipelineStore {
     }
     
     @action getPipelines = () => {
-        pipelines.getAll({
+        pipelines
+        .getAll({
             workspace_id: workspaceStore.currentWorkspace._id, 
             project_id: projectStore.currentProject?._id
-        }).then(data => this.setData(data))
+        })
+        .then(data => this.setData(data))
     }
 
     preRun = () => {

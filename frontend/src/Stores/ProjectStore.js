@@ -35,10 +35,12 @@ class ProjectStore {
 
     @action delete = (project) => {
         this.loading = true
-        projects.deleteProject({
+        projects
+        .deleteProject({
             workspace_id: workspaceStore.currentWorkspace._id, 
             project_id: project._id
-        }).then(() => this.getProjects())        
+        })
+        .then(this.getProjects)        
     }
 
 }
